@@ -30,3 +30,11 @@ export function recordLoginIfNeeded(state, now = new Date()) {
     entries: { ...state.entries, [key]: { time: toTimeString(now) } },
   }
 }
+
+// Manually set (or add) the login time for a day.
+export function setLoginTime(state, dateKey, time) {
+  return {
+    ...state,
+    entries: { ...state.entries, [dateKey]: { time, edited: true } },
+  }
+}

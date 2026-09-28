@@ -3,7 +3,7 @@ import {
   eachDayOfInterval,
   endOfMonth,
   format,
-  getISODay,
+  getDay,
   isSameMonth,
   isWeekend,
   startOfDay,
@@ -17,14 +17,14 @@ import { useHoverTooltip } from '../../hooks/useHoverTooltip'
 import { ChartTooltip } from './ChartTooltip'
 import { daysByDate, describeDay, hitFill } from './days'
 
-const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 function dayClasses(day, settings) {
   if (day?.status === 'pending') return 'text-ink ring-2 ring-sun-500 ring-inset'
   return hitFill(day, settings) ? `${hitFill(day, settings)} text-ink` : 'text-ink-soft'
 }
 
-export function MonthCalendar({ state, today = new Date() }) {
+export function MonthCalendar({ state, onSelectDay, today = new Date() }) {
   const [month, setMonth] = useState(() => startOfMonth(today))
   const { ref, tip, show, hide } = useHoverTooltip()
 
@@ -74,27 +74,42 @@ export function MonthCalendar({ state, today = new Date() }) {
           {monthDays.map((date, i) => {
             const key = toDateKey(date)
             const day = days[key]
-            const weekend = isWeekend(date)
             const isToday = key === toDateKey(end)
-            const described = day && describeDay(day, state.settings)
+            const editable = !isWeekend(date) && date <= end
+            const classes = `grid size-9 place-items-center rounded-full text-sm font-bold tabular-nums ${
+              editable ? dayClasses(day, state.settings) : 'text-ink-soft/30'
+            } ${isToday && day?.status !== 'pending' ? 'ring-2 ring-sun-600 ring-offset-2 ring-offset-white' : ''}`
+
+            let cell = <span className={classes}>{date.getDate()}</span>
+            if (editable) {
+              const described = describeDay(
+                day ?? { date: key, status: 'empty', time: null },
+                state.settings,
+              )
+              cell = (
+                <button
+                  type="button"
+                  aria-label={`${described.date}: ${described.detail}. Edit log on time`}
+                  onClick={() => {
+                    hide()
+                    onSelectDay(key)
+                  }}
+                  onMouseEnter={(e) => show(e, described)}
+                  onMouseLeave={hide}
+                  className={`${classes} cursor-pointer transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sun-500`}
+                >
+                  {date.getDate()}
+                </button>
+              )
+            }
 
             return (
               <div
                 key={key}
                 className="grid place-items-center"
-                style={i === 0 ? { gridColumnStart: getISODay(date) } : undefined}
+                style={i === 0 ? { gridColumnStart: getDay(date) + 1 } : undefined}
               >
-                <span
-                  role={described ? 'img' : undefined}
-                  aria-label={described ? `${described.date}: ${described.detail}` : undefined}
-                  onMouseEnter={described ? (e) => show(e, described) : undefined}
-                  onMouseLeave={described ? hide : undefined}
-                  className={`grid size-9 place-items-center rounded-full text-sm font-bold tabular-nums ${
-                    weekend ? 'text-ink-soft/30' : dayClasses(day, state.settings)
-                  } ${isToday && day?.status !== 'pending' ? 'ring-2 ring-sun-600 ring-offset-2 ring-offset-white' : ''}`}
-                >
-                  {date.getDate()}
-                </span>
+                {cell}
               </div>
             )
           })}

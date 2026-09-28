@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { MonthCalendar } from './components/charts/MonthCalendar'
 import { YearHeatmap } from './components/charts/YearHeatmap'
+import { EditLoginDialog } from './components/EditLoginDialog'
 import { Button } from './components/ui/Button'
 import { Card, CardLabel } from './components/ui/Card'
 import { SegmentedControl } from './components/ui/SegmentedControl'
 import { Sun } from './components/ui/Sun'
 import { useLoginData } from './hooks/useLoginData'
-import { toDateKey } from './lib/logins'
+import { setLoginTime, toDateKey } from './lib/logins'
 import { getStats } from './lib/stats'
 
 // Temporary style guide for Phase 3; replaced by the dashboard in Phase 4.
@@ -24,8 +25,9 @@ const RANGE_OPTIONS = [
 ]
 
 function App() {
-  const [state] = useLoginData()
+  const [state, setState] = useLoginData()
   const [range, setRange] = useState('30d')
+  const [editingDate, setEditingDate] = useState(null)
   const today = state.entries[toDateKey(new Date())]
   const stats = getStats(state, range)
 
@@ -73,7 +75,7 @@ function App() {
       <YearHeatmap state={state} />
 
       <div className="grid items-start gap-4 md:grid-cols-2">
-        <MonthCalendar state={state} />
+        <MonthCalendar state={state} onSelectDay={setEditingDate} />
 
       <Card className="space-y-6">
         <div>
@@ -112,6 +114,20 @@ function App() {
         </div>
       </Card>
       </div>
+
+      {editingDate && (
+        <EditLoginDialog
+          key={editingDate}
+          date={editingDate}
+          entry={state.entries[editingDate]}
+          settings={state.settings}
+          onClose={() => setEditingDate(null)}
+          onSave={(time) => {
+            setState((s) => setLoginTime(s, editingDate, time))
+            setEditingDate(null)
+          }}
+        />
+      )}
     </main>
   )
 }
