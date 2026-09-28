@@ -1,7 +1,7 @@
 import { format, isWeekend } from 'date-fns'
 
 export const DEFAULT_SETTINGS = {
-  targetTime: '07:00',
+  targetTime: '08:40',
   graceMinutes: 5,
 }
 
