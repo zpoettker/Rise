@@ -34,7 +34,7 @@ function App() {
       <header className="flex animate-rise items-center gap-6">
         <Sun size={112} />
         <div>
-          <h1 className="text-5xl font-semibold tracking-tight">Good morning</h1>
+          <h1 className="text-5xl font-semibold tracking-tight">Good Morning, Zach</h1>
           <p className="mt-2 text-lg text-ink-soft">
             {today ? `You logged on at ${today.time}` : 'Enjoy your weekend'} · target{' '}
             {state.settings.targetTime}
@@ -51,6 +51,11 @@ function App() {
           <CardLabel>Current streak</CardLabel>
           <p className="mt-2 font-display text-5xl font-semibold tabular-nums text-sun-600">
             {stats.currentStreak}
+            {stats.currentStreak > 0 && stats.currentStreak === stats.bestStreak && (
+              <span className="ml-2 text-4xl" role="img" aria-label="High score">
+                🔥
+              </span>
+            )}
           </p>
         </Card>
         <Card>

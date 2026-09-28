@@ -12,7 +12,7 @@ export function createDemoState(today = new Date()) {
 
   for (const day of eachDayOfInterval({ start: subDays(today, 240), end: subDays(today, 1) })) {
     if (isWeekend(day) || random() < 0.08) continue
-    const offset = Math.round((random() - 0.72) * 60)
+    const offset = Math.round((random() - 0.6) * 60)
     state.entries[toDateKey(day)] = { time: formatMinutes(target + offset) }
   }
   return state

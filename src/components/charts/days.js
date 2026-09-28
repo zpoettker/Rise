@@ -21,7 +21,10 @@ export function describeDay(day, settings) {
   }
 
   const diff = toMinutes(settings.targetTime) - toMinutes(day.time)
-  const when =
-    diff > 0 ? `${diff} min early` : diff === 0 ? 'right on time' : `${-diff} min late`
+  let when
+  if (diff > 0) when = `${diff} min early`
+  else if (diff === 0) when = 'right on time'
+  else if (day.status === 'hit') when = `${-diff} min past target, within grace`
+  else when = `${-diff} min late`
   return { date, detail: `${formatTime12(day.time)} · ${when}` }
 }

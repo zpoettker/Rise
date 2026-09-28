@@ -3,9 +3,9 @@
 Personal morning log-on tracker. Chrome opens the Vercel site on startup; the first visit each weekday is recorded in `localStorage`.
 
 ## Rules
-- **Hit:** logged on at or before the target time + 5 min grace.
+- **Hit:** logged on at or before the target time + 15 min grace.
 - **Tracked days:** weekdays only. Weekends are ignored entirely (not shown as missed, don't break streaks).
-- **Target:** one target time for every day, default 8:40 (configurable in settings).
+- **Target:** one target time for every day, default 8:30 (configurable in settings).
 - **Login:** first time the page is seen on a given day (on load or when the tab becomes visible). Refreshes don't re-record.
 
 ## Phases

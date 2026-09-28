@@ -1,8 +1,8 @@
 import { format, isWeekend } from 'date-fns'
 
 export const DEFAULT_SETTINGS = {
-  targetTime: '08:40',
-  graceMinutes: 5,
+  targetTime: '08:30',
+  graceMinutes: 15,
 }
 
 // entries are keyed by local date ('yyyy-MM-dd') so each day holds at most one login
