@@ -9,8 +9,8 @@ Personal morning log-on tracker. Chrome opens the Vercel site on startup; the fi
 - **Login:** first time the page is seen on a given day (on load or when the tab becomes visible). Refreshes don't re-record.
 
 ## Phases
-- [ ] **0. Scaffold & deploy:** Vite + React, Tailwind, date-fns, Vitest; GitHub → Vercel auto-deploy; Chrome startup page
-- [ ] **1. Data layer:** entry/settings shape, versioned `localStorage` module, `recordLoginIfNeeded()`
+- [x] **0. Scaffold & deploy:** Vite + React, Tailwind, date-fns, Vitest; GitHub → Vercel auto-deploy; Chrome startup page
+- [x] **1. Data layer:** entry/settings shape, versioned `localStorage` module, `recordLoginIfNeeded()`
 - [ ] **2. Stats engine:** `classifyDay`, current/best streak, average time, hit rate (pure functions, unit tested)
 - [ ] **3. Design system:** sunrise palette tokens, typography, card styles
 - [ ] **4. Dashboard:** today hero, stat cards w/ range toggle, custom SVG heatmap
