@@ -14,9 +14,7 @@ import { getStats } from './lib/stats'
 const SUN_SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]
 const STATUSES = [
   ['Hit', 'bg-sun-400'],
-  ['Late', 'bg-late'],
-  ['Missed', 'bg-missed'],
-  ['No data', 'bg-empty'],
+  ['Missed / no data', 'bg-empty'],
 ]
 const RANGE_OPTIONS = [
   { value: '7d', label: '7d' },

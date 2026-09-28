@@ -5,7 +5,7 @@ import { Card, CardLabel } from '../ui/Card'
 import { useHoverTooltip } from '../../hooks/useHoverTooltip'
 import { ChartTooltip } from './ChartTooltip'
 import { DayLegend } from './DayLegend'
-import { dayFill, daysByDate, describeDay } from './days'
+import { daysByDate, describeDay, hitFill } from './days'
 
 const CELL = 11
 const GAP = 3
@@ -92,7 +92,7 @@ export function YearHeatmap({ state, today = new Date() }) {
                     aria-label={`${label}: ${detail}`}
                     onMouseEnter={(e) => show(e, { date: label, detail })}
                     onMouseLeave={hide}
-                    className={`rounded-[3px] ${dayFill(day, state.settings)} ${
+                    className={`rounded-[3px] ${hitFill(day, state.settings) ?? 'bg-empty'} ${
                       day.status === 'pending' ? 'ring-1 ring-sun-500 ring-inset' : ''
                     }`}
                     style={{ gridColumn: col + 2, gridRow: row + 2 }}

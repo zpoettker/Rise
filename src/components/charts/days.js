@@ -3,11 +3,9 @@ import { formatTime12, getDays, hitLevel, toMinutes } from '../../lib/stats'
 
 export const HIT_FILLS = [null, 'bg-sun-200', 'bg-sun-300', 'bg-sun-400', 'bg-sun-500']
 
-export function dayFill(day, settings) {
-  if (day.status === 'hit') return HIT_FILLS[hitLevel(day.time, settings)]
-  if (day.status === 'late') return 'bg-late'
-  if (day.status === 'missed') return 'bg-missed'
-  return 'bg-empty'
+// Only hits are colored; late, missed and untracked days stay blank.
+export function hitFill(day, settings) {
+  return day?.status === 'hit' ? HIT_FILLS[hitLevel(day.time, settings)] : null
 }
 
 // Tracked days from `from` through today, keyed by 'yyyy-MM-dd'
