@@ -12,7 +12,7 @@ Personal morning log-on tracker. Chrome opens the Vercel site on startup; the fi
 - [x] **0. Scaffold & deploy:** Vite + React, Tailwind, date-fns, Vitest; GitHub → Vercel auto-deploy; Chrome startup page
 - [x] **1. Data layer:** entry/settings shape, versioned `localStorage` module, `recordLoginIfNeeded()`
 - [x] **2. Stats engine:** `classifyDay`, current/best streak, average time, hit rate (pure functions, unit tested)
-- [ ] **3. Design system:** sunrise palette tokens, typography, card styles
+- [x] **3. Design system:** sunrise palette tokens, typography, card styles
 - [ ] **4. Dashboard:** today hero, stat cards w/ range toggle, custom SVG heatmap
 - [ ] **5. Editing & settings:** edit/add/delete past logins, settings panel, JSON export/import
 - [ ] **6. Gamification & polish:** hit celebration, high-score moment, streak badges, animations, first-run setup
