@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { MonthCalendar } from './components/charts/MonthCalendar'
+import { YearHeatmap } from './components/charts/YearHeatmap'
 import { Button } from './components/ui/Button'
 import { Card, CardLabel } from './components/ui/Card'
 import { SegmentedControl } from './components/ui/SegmentedControl'
@@ -65,6 +67,11 @@ function App() {
         </Card>
       </div>
 
+      <YearHeatmap state={state} />
+
+      <div className="grid items-start gap-4 md:grid-cols-2">
+        <MonthCalendar state={state} />
+
       <Card className="space-y-6">
         <div>
           <CardLabel>Sun scale</CardLabel>
@@ -101,6 +108,7 @@ function App() {
           </div>
         </div>
       </Card>
+      </div>
     </main>
   )
 }

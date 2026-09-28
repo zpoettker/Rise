@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialState } from './logins'
-import { formatMinutes, getDays, getStats, isHit } from './stats'
+import { formatMinutes, formatTime12, getDays, getStats, hitLevel, isHit } from './stats'
 
 // Sept 2026: Mon 21 … Fri 25, weekend 26–27, Mon 28, Tue 29
 const day = (d) => new Date(2026, 8, d, 12, 0)
@@ -92,6 +92,26 @@ describe('getStats range numbers', () => {
       hitRate: null,
       averageTime: null,
     })
+  })
+})
+
+describe('hitLevel', () => {
+  const settings = { targetTime: '08:40', graceMinutes: 5 }
+
+  it('grades hits by minutes before the target', () => {
+    expect(hitLevel('08:44', settings)).toBe(1)
+    expect(hitLevel('08:36', settings)).toBe(1)
+    expect(hitLevel('08:35', settings)).toBe(2)
+    expect(hitLevel('08:25', settings)).toBe(3)
+    expect(hitLevel('08:10', settings)).toBe(4)
+  })
+})
+
+describe('formatTime12', () => {
+  it('converts to 12-hour time', () => {
+    expect(formatTime12('08:05')).toBe('8:05 AM')
+    expect(formatTime12('00:30')).toBe('12:30 AM')
+    expect(formatTime12('13:00')).toBe('1:00 PM')
   })
 })
 

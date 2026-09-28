@@ -20,8 +20,22 @@ export function formatMinutes(minutes) {
   return `${h}:${m}`
 }
 
+export function formatTime12(time) {
+  const [h, m] = time.split(':').map(Number)
+  return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
+}
+
 export function isHit(time, settings) {
   return toMinutes(time) <= toMinutes(settings.targetTime) + settings.graceMinutes
+}
+
+// How strongly a hit glows on the charts: 1 (grace window / just made it) → 4 (30+ min early)
+export function hitLevel(time, settings) {
+  const early = toMinutes(settings.targetTime) - toMinutes(time)
+  if (early >= 30) return 4
+  if (early >= 15) return 3
+  if (early >= 5) return 2
+  return 1
 }
 
 // First day with a login; days before this are never counted as missed.
