@@ -3,9 +3,9 @@
 Personal morning log-on tracker. Chrome opens the Vercel site on startup; the first visit each weekday is recorded in `localStorage`.
 
 ## Rules
-- **Hit:** logged on at or before the target time + 15 min grace.
+- **Hit:** logged on at or before the target time + grace. Anything after is **late**; a past weekday with no log on is **missed**.
 - **Tracked days:** weekdays only. Weekends are ignored entirely (not shown as missed, don't break streaks).
-- **Target:** one target time for every day, default 8:30 (configurable in settings).
+- **Target:** one target time for every day, default 8:30 with 15 min grace (both configurable in settings). Changing them re-grades all past days.
 - **Login:** first time the page is seen on a given day (on load or when the tab becomes visible). Refreshes don't re-record.
 
 ## Design decisions
@@ -28,18 +28,24 @@ Personal morning log-on tracker. Chrome opens the Vercel site on startup; the fi
   - [x] Hit rate card (`HitRateCard.jsx`) next to the calendar: ring + hit/late/missed counts for the selected range (replaced the temporary style guide)
 - [ ] **5. Editing & settings:** edit/add/delete past logins, settings panel, JSON export/import
   - [x] Click a calendar day → popup to set/add its login time (`EditLoginDialog.jsx`, `setLoginTime`)
-  - [ ] Settings panel (target time, grace minutes)
+  - [x] Settings panel: gear in the header → `SettingsDialog.jsx` (target time, grace 0–60 min, reset to defaults). Saved via `updateSettings`; past days are re-graded with the new settings. Popups share `ui/Dialog.jsx`.
   - [ ] JSON export/import backup
   - [ ] (Optional) delete a login, "edited" marker
 - [ ] **6. Gamification & polish:** hit celebration, high-score moment, streak badges, animations, first-run setup
 
+## Next up
+1. **JSON export/import backup.** Planned as a "Backup" section inside the settings popup: download all data as a `.json` file, and load one back (validate it, confirm before overwriting).
+2. (Optional) delete a login from the day popup; show a small marker on hand-edited days (entries already store `edited: true`).
+3. Then Phase 6.
+
 ## Dev notes
 - `npm run dev`, then open `/?demo` to preview with ~8 months of fake data (dev only, never saved).
 - `npm run test` (Vitest), `npm run lint`, `npm run build`.
-- Data lives in `localStorage` under `rise:data`. Settings saved there override the defaults in `logins.js`. Until the settings panel exists, delete that key to pick up new defaults.
+- Data lives in `localStorage` under `rise:data`. Settings saved there override the defaults in `logins.js`; change them from the gear in the header.
 
 ## Deployment
 - GitHub repo `zpoettker/login-tracker`; Vercel auto-deploys every push to `main`.
 - Use the Vercel project's **production domain** (Vercel → Domains) as the Chrome startup page, not a per-deployment URL like `login-tracker-<hash>-zpoettkers-projects.vercel.app`, which is frozen to one build.
 - `login-tracker.vercel.app` belongs to someone else.
-- Production domain: _TBD, fill in once confirmed_
+- Production domain: https://login-tracker-olive.vercel.app/ (use this as the Chrome startup page)
+- `localStorage` is per domain: log-ons recorded on an old per-deployment URL don't carry over to the production domain. Re-enter them via the calendar, or use export/import once it exists.

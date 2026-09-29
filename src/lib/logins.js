@@ -31,6 +31,11 @@ export function recordLoginIfNeeded(state, now = new Date()) {
   }
 }
 
+// Stats are computed on the fly, so new settings re-grade past days too.
+export function updateSettings(state, settings) {
+  return { ...state, settings: { ...state.settings, ...settings } }
+}
+
 // Manually set (or add) the login time for a day.
 export function setLoginTime(state, dateKey, time) {
   return {

@@ -3,11 +3,13 @@ import { HitRateCard } from './components/charts/HitRateCard'
 import { MonthCalendar } from './components/charts/MonthCalendar'
 import { YearHeatmap } from './components/charts/YearHeatmap'
 import { EditLoginDialog } from './components/EditLoginDialog'
+import { SettingsDialog } from './components/SettingsDialog'
 import { Card, CardLabel } from './components/ui/Card'
+import { GearIcon } from './components/ui/GearIcon'
 import { SegmentedControl } from './components/ui/SegmentedControl'
 import { Sun } from './components/ui/Sun'
 import { useLoginData } from './hooks/useLoginData'
-import { setLoginTime, toDateKey } from './lib/logins'
+import { setLoginTime, toDateKey, updateSettings } from './lib/logins'
 import { getStats } from './lib/stats'
 
 const RANGE_OPTIONS = [
@@ -27,6 +29,7 @@ function App() {
   const [state, setState] = useLoginData()
   const [range, setRange] = useState('30d')
   const [editingDate, setEditingDate] = useState(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const today = state.entries[toDateKey(new Date())]
   const stats = getStats(state, range)
 
@@ -41,6 +44,15 @@ function App() {
             {state.settings.targetTime}
           </p>
         </div>
+        <button
+          type="button"
+          aria-label="Settings"
+          title="Settings"
+          onClick={() => setSettingsOpen(true)}
+          className="group ml-auto grid size-11 shrink-0 place-items-center self-start rounded-full text-ink-soft transition-colors hover:bg-sun-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sun-500"
+        >
+          <GearIcon className="size-6 transition-transform duration-500 group-hover:rotate-90" />
+        </button>
       </header>
 
       <div className="flex justify-end">
@@ -88,6 +100,17 @@ function App() {
           onSave={(time) => {
             setState((s) => setLoginTime(s, editingDate, time))
             setEditingDate(null)
+          }}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsDialog
+          settings={state.settings}
+          onClose={() => setSettingsOpen(false)}
+          onSave={(settings) => {
+            setState((s) => updateSettings(s, settings))
+            setSettingsOpen(false)
           }}
         />
       )}

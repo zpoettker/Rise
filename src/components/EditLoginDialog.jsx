@@ -1,7 +1,8 @@
 import { format, parseISO } from 'date-fns'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { isHit, toMinutes } from '../lib/stats'
 import { Button } from './ui/Button'
+import { Dialog, DialogTitle } from './ui/Dialog'
 
 function preview(time, settings) {
   if (!time) return null
@@ -13,13 +14,8 @@ function preview(time, settings) {
 }
 
 export function EditLoginDialog({ date, entry, settings, onSave, onClose }) {
-  const ref = useRef(null)
   const [time, setTime] = useState(entry?.time ?? settings.targetTime)
   const result = preview(time, settings)
-
-  useEffect(() => {
-    if (!ref.current.open) ref.current.showModal()
-  }, [])
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -28,19 +24,11 @@ export function EditLoginDialog({ date, entry, settings, onSave, onClose }) {
   }
 
   return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      onClick={(e) => e.target === ref.current && onClose()}
-      className="m-auto w-[min(24rem,calc(100%-2rem))] animate-rise rounded-3xl border border-line bg-cream p-0 text-ink shadow-soft backdrop:bg-ink/25 backdrop:backdrop-blur-sm"
-    >
+    <Dialog onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-5 p-6">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-ink-soft">
-            {entry ? 'Edit log on' : 'Add log on'}
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold">{format(parseISO(date), 'EEEE, MMMM d')}</h2>
-        </div>
+        <DialogTitle label={entry ? 'Edit log on' : 'Add log on'}>
+          {format(parseISO(date), 'EEEE, MMMM d')}
+        </DialogTitle>
 
         <label className="block">
           <span className="text-sm font-semibold text-ink-soft">Log on time</span>
@@ -70,6 +58,6 @@ export function EditLoginDialog({ date, entry, settings, onSave, onClose }) {
           <Button type="submit">Save</Button>
         </div>
       </form>
-    </dialog>
+    </Dialog>
   )
 }

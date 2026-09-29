@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createInitialState, recordLoginIfNeeded, setLoginTime } from './logins'
+import { createInitialState, recordLoginIfNeeded, setLoginTime, updateSettings } from './logins'
 
 // 2026-09-28 is a Monday
 const monday = (h, m) => new Date(2026, 8, 28, h, m)
@@ -40,5 +40,14 @@ describe('setLoginTime', () => {
   it('adds a login for a day with no data', () => {
     const edited = setLoginTime(createInitialState(), '2026-09-22', '08:05')
     expect(edited.entries['2026-09-22']).toEqual({ time: '08:05', edited: true })
+  })
+})
+
+describe('updateSettings', () => {
+  it('replaces the given settings and keeps entries', () => {
+    const state = recordLoginIfNeeded(createInitialState(), monday(8, 0))
+    const updated = updateSettings(state, { targetTime: '07:45' })
+    expect(updated.settings).toEqual({ targetTime: '07:45', graceMinutes: 15 })
+    expect(updated.entries).toBe(state.entries)
   })
 })
