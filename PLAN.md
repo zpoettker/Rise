@@ -21,11 +21,11 @@ Personal morning log-on tracker. Chrome opens the Vercel site on startup; the fi
 - [x] **1. Data layer:** entry/settings shape, versioned `localStorage` module, `recordLoginIfNeeded()`
 - [x] **2. Stats engine:** `classifyDay`, current/best streak, average time, hit rate (pure functions, unit tested)
 - [x] **3. Design system:** sunrise palette tokens, typography, card styles
-- [ ] **4. Dashboard:** today hero, stat cards w/ range toggle, custom SVG heatmap
+- [x] **4. Dashboard:** today hero, stat cards w/ range toggle, custom SVG heatmap
   - [x] Stat cards with 7d/30d/90d/All range toggle
   - [x] Year heatmap (`YearHeatmap.jsx`) with hover tooltips
   - [x] Month calendar (`MonthCalendar.jsx`) with month navigation
-  - [ ] Replace the temporary style-guide card at the bottom of `App.jsx` with the final dashboard layout
+  - [x] Hit rate card (`HitRateCard.jsx`) next to the calendar: ring + hit/late/missed counts for the selected range (replaced the temporary style guide)
 - [ ] **5. Editing & settings:** edit/add/delete past logins, settings panel, JSON export/import
   - [x] Click a calendar day → popup to set/add its login time (`EditLoginDialog.jsx`, `setLoginTime`)
   - [ ] Settings panel (target time, grace minutes)

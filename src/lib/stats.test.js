@@ -74,6 +74,8 @@ describe('getStats range numbers', () => {
     const stats = getStats(state, '7d', day(25))
     expect(stats.trackedDays).toBe(4)
     expect(stats.hits).toBe(2)
+    expect(stats.late).toBe(1)
+    expect(stats.missed).toBe(1)
     expect(stats.hitRate).toBe(0.5)
     expect(stats.averageTime).toBe('08:40')
   })

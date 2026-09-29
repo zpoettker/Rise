@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { HitRateCard } from './components/charts/HitRateCard'
 import { MonthCalendar } from './components/charts/MonthCalendar'
 import { YearHeatmap } from './components/charts/YearHeatmap'
 import { EditLoginDialog } from './components/EditLoginDialog'
-import { Button } from './components/ui/Button'
 import { Card, CardLabel } from './components/ui/Card'
 import { SegmentedControl } from './components/ui/SegmentedControl'
 import { Sun } from './components/ui/Sun'
@@ -10,20 +10,18 @@ import { useLoginData } from './hooks/useLoginData'
 import { setLoginTime, toDateKey } from './lib/logins'
 import { getStats } from './lib/stats'
 
-// Temporary style guide for Phase 3; replaced by the dashboard in Phase 4.
-
-const SUN_SHADES = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]
-const STATUSES = [
-  ['Hit', 'bg-sun-400'],
-  ['Late / missed', 'bg-miss'],
-  ['No data', 'bg-empty'],
-]
 const RANGE_OPTIONS = [
   { value: '7d', label: '7d' },
   { value: '30d', label: '30d' },
   { value: '90d', label: '90d' },
   { value: 'all', label: 'All' },
 ]
+const RANGE_LABELS = {
+  '7d': 'Last 7 days',
+  '30d': 'Last 30 days',
+  '90d': 'Last 90 days',
+  all: 'All time',
+}
 
 function App() {
   const [state, setState] = useLoginData()
@@ -75,45 +73,9 @@ function App() {
 
       <YearHeatmap state={state} />
 
-      <div className="grid items-start gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <MonthCalendar state={state} onSelectDay={setEditingDate} />
-
-      <Card className="space-y-6">
-        <div>
-          <CardLabel>Sun scale</CardLabel>
-          <div className="mt-3 flex overflow-hidden rounded-2xl">
-            {SUN_SHADES.map((shade) => (
-              <div
-                key={shade}
-                className="h-12 flex-1"
-                style={{ background: `var(--color-sun-${shade})` }}
-                title={`sun-${shade}`}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <CardLabel>Day statuses</CardLabel>
-          <div className="mt-3 flex flex-wrap gap-4">
-            {STATUSES.map(([name, bg]) => (
-              <span key={name} className="flex items-center gap-2 text-sm font-semibold">
-                <span className={`size-4 rounded-md ${bg}`} />
-                {name}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <CardLabel>Buttons</CardLabel>
-          <div className="mt-3 flex flex-wrap gap-3">
-            <Button>Save</Button>
-            <Button variant="outline">Export data</Button>
-            <Button variant="ghost">Cancel</Button>
-          </div>
-        </div>
-      </Card>
+        <HitRateCard stats={stats} rangeLabel={RANGE_LABELS[range]} />
       </div>
 
       {editingDate && (

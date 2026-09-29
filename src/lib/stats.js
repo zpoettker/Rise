@@ -92,13 +92,16 @@ export function getStats(state, range = '30d', today = new Date()) {
 
   const days = getDays(state, rangeStart(range, state, today), today)
   const counted = days.filter((d) => d.status !== 'pending')
-  const hits = counted.filter((d) => d.status === 'hit').length
+  const count = (status) => counted.filter((d) => d.status === status).length
+  const hits = count('hit')
   const times = days.filter((d) => d.time).map((d) => toMinutes(d.time))
 
   return {
     currentStreak: current,
     bestStreak: best,
     hits,
+    late: count('late'),
+    missed: count('missed'),
     trackedDays: counted.length,
     hitRate: counted.length ? hits / counted.length : null,
     averageTime: times.length
