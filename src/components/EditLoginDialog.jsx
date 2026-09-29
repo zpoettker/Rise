@@ -1,19 +1,17 @@
 import { format, parseISO } from 'date-fns'
 import { useState } from 'react'
-import { isHit, toMinutes } from '../lib/stats'
+import { describeLogin } from '../lib/stats'
 import { Button } from './ui/Button'
 import { Dialog, DialogTitle } from './ui/Dialog'
+import { TrashIcon } from './ui/TrashIcon'
 
 function preview(time, settings) {
   if (!time) return null
-  const diff = toMinutes(settings.targetTime) - toMinutes(time)
-  if (!isHit(time, settings)) return { hit: false, text: `${-diff} min late` }
-  if (diff > 0) return { hit: true, text: `On target · ${diff} min early` }
-  if (diff === 0) return { hit: true, text: 'On target · right on time' }
-  return { hit: true, text: `On target · within grace` }
+  const { hit, detail } = describeLogin(time, settings)
+  return { hit, text: hit ? `On target · ${detail}` : detail }
 }
 
-export function EditLoginDialog({ date, entry, settings, onSave, onClose }) {
+export function EditLoginDialog({ date, entry, settings, onSave, onDelete, onClose }) {
   const [time, setTime] = useState(entry?.time ?? settings.targetTime)
   const result = preview(time, settings)
 
@@ -51,8 +49,19 @@ export function EditLoginDialog({ date, entry, settings, onSave, onClose }) {
           </p>
         )}
 
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose}>
+        <div className="flex items-center gap-2">
+          {entry && (
+            <button
+              type="button"
+              aria-label="Delete log on"
+              title="Delete log on"
+              onClick={onDelete}
+              className="grid size-10 place-items-center rounded-full text-ink-soft transition-colors hover:bg-sun-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sun-500"
+            >
+              <TrashIcon className="size-5" />
+            </button>
+          )}
+          <Button variant="ghost" onClick={onClose} className="ml-auto">
             Cancel
           </Button>
           <Button type="submit">Save</Button>

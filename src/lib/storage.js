@@ -25,3 +25,23 @@ export function saveState(state) {
     // storage full or blocked; nothing useful to do here
   }
 }
+
+// The last day the hit celebration played, kept apart from the data so it
+// never ends up in backups.
+const CELEBRATED_KEY = 'rise:celebrated'
+
+export function loadCelebratedDay() {
+  try {
+    return localStorage.getItem(CELEBRATED_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function saveCelebratedDay(dateKey) {
+  try {
+    localStorage.setItem(CELEBRATED_KEY, dateKey)
+  } catch {
+    // blocked storage just means the celebration may replay
+  }
+}

@@ -3,7 +3,8 @@ import { createInitialState, toDateKey } from './logins'
 import { formatMinutes, toMinutes } from './stats'
 
 // Fake history for previewing the UI in dev (open the app with ?demo). Never saved.
-export function createDemoState(today = new Date()) {
+// `hitToday` adds an early log-on today (used by ?demo&celebrate).
+export function createDemoState(today = new Date(), { hitToday = false } = {}) {
   const state = createInitialState()
   const target = toMinutes(state.settings.targetTime)
 
@@ -15,5 +16,6 @@ export function createDemoState(today = new Date()) {
     const offset = Math.round((random() - 0.6) * 60)
     state.entries[toDateKey(day)] = { time: formatMinutes(target + offset) }
   }
+  if (hitToday && !isWeekend(today)) state.entries[toDateKey(today)] = { time: formatMinutes(target - 18) }
   return state
 }

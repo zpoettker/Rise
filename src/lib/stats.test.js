@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialState } from './logins'
-import { formatMinutes, formatTime12, getDays, getStats, hitLevel, isHit } from './stats'
+import {
+  describeLogin,
+  formatMinutes,
+  formatTime12,
+  getDays,
+  getStats,
+  hitLevel,
+  isHit,
+  isNewBestToday,
+} from './stats'
 
 // Sept 2026: Mon 21 … Fri 25, weekend 26–27, Mon 28, Tue 29
 const day = (d) => new Date(2026, 8, d, 12, 0)
@@ -121,5 +130,40 @@ describe('formatMinutes', () => {
   it('pads and rounds', () => {
     expect(formatMinutes(520.4)).toBe('08:40')
     expect(formatMinutes(65)).toBe('01:05')
+  })
+})
+
+describe('describeLogin', () => {
+  const settings = { targetTime: '08:30', graceMinutes: 15 }
+
+  it('describes hits', () => {
+    expect(describeLogin('08:12', settings)).toEqual({ hit: true, detail: '18 min early' })
+    expect(describeLogin('08:30', settings)).toEqual({ hit: true, detail: 'right on time' })
+    expect(describeLogin('08:40', settings)).toEqual({ hit: true, detail: 'within grace' })
+  })
+
+  it('describes late log-ons', () => {
+    expect(describeLogin('08:52', settings)).toEqual({ hit: false, detail: '22 min late' })
+  })
+})
+
+describe('isNewBestToday', () => {
+  it("is true when today's hit beats the old best", () => {
+    const state = stateWith({ 21: '08:00', 22: '09:30', 24: '08:00', 25: '08:00', 28: '08:00' })
+    expect(isNewBestToday(state, day(28))).toBe(true)
+  })
+
+  it('is false when the streak only ties the old best', () => {
+    const state = stateWith({ 21: '08:00', 22: '08:00', 23: '09:30', 25: '08:00', 28: '08:00' })
+    expect(isNewBestToday(state, day(28))).toBe(false)
+  })
+
+  it('is false when today is late or not logged', () => {
+    expect(isNewBestToday(stateWith({ 25: '08:00', 28: '09:30' }), day(28))).toBe(false)
+    expect(isNewBestToday(stateWith({ 24: '08:00', 25: '08:00' }), day(28))).toBe(false)
+  })
+
+  it('needs at least two days in a row', () => {
+    expect(isNewBestToday(stateWith({ 28: '08:00' }), day(28))).toBe(false)
   })
 })

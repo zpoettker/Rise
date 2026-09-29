@@ -3,13 +3,15 @@ import { createDemoState } from '../lib/demo'
 import { recordLoginIfNeeded } from '../lib/logins'
 import { loadState, saveState } from '../lib/storage'
 
-const DEMO = import.meta.env.DEV && new URLSearchParams(window.location.search).has('demo')
+const params = new URLSearchParams(window.location.search)
+const DEMO = import.meta.env.DEV && params.has('demo')
+const CELEBRATE = params.has('celebrate')
 
 // Loads saved data and records today's login on mount and whenever the tab
 // becomes visible again (covers Chrome being left open overnight).
 export function useLoginData() {
   const [state, setState] = useState(() =>
-    DEMO ? createDemoState() : recordLoginIfNeeded(loadState()),
+    DEMO ? createDemoState(new Date(), { hitToday: CELEBRATE }) : recordLoginIfNeeded(loadState()),
   )
 
   useEffect(() => {

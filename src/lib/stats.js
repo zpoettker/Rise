@@ -1,5 +1,5 @@
 import { eachDayOfInterval, isWeekend, max, parseISO, startOfDay, subDays } from 'date-fns'
-import { toDateKey } from './logins'
+import { deleteLogin, toDateKey } from './logins'
 
 export const RANGES = {
   '7d': 7,
@@ -27,6 +27,15 @@ export function formatTime12(time) {
 
 export function isHit(time, settings) {
   return toMinutes(time) <= toMinutes(settings.targetTime) + settings.graceMinutes
+}
+
+// Short description of a log-on vs the target: '18 min early', '12 min late', …
+export function describeLogin(time, settings) {
+  const diff = toMinutes(settings.targetTime) - toMinutes(time)
+  if (!isHit(time, settings)) return { hit: false, detail: `${-diff} min late` }
+  if (diff > 0) return { hit: true, detail: `${diff} min early` }
+  if (diff === 0) return { hit: true, detail: 'right on time' }
+  return { hit: true, detail: 'within grace' }
 }
 
 // How strongly a hit glows on the charts: 1 (grace window / just made it) → 4 (30+ min early)
@@ -108,4 +117,15 @@ export function getStats(state, range = '30d', today = new Date()) {
       ? formatMinutes(times.reduce((a, b) => a + b, 0) / times.length)
       : null,
   }
+}
+
+// True when today's hit pushed the current streak past the best it had been.
+export function isNewBestToday(state, today = new Date()) {
+  const key = toDateKey(today)
+  const entry = state.entries[key]
+  if (!entry || !isHit(entry.time, state.settings)) return false
+
+  const { currentStreak } = getStats(state, 'all', today)
+  const { bestStreak: before } = getStats(deleteLogin(state, key), 'all', today)
+  return currentStreak >= 2 && currentStreak > before
 }
