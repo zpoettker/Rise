@@ -10,7 +10,7 @@ Personal morning log-on tracker. Chrome opens the Vercel site on startup; the fi
 
 ## Design decisions
 - Keep the soft sunrise look: cream background, gold/orange `sun-*` scale, Fraunces (headings/numbers) + Nunito (body).
-- Only hit days get color, shaded darker the earlier the log-on (`hitLevel`: 8:26–8:45 / 5+ / 15+ / 30+ min early). Late, missed and no-data days stay blank. No purple or other status colors.
+- Hit days are gold, shaded darker the earlier the log-on (`hitLevel`: 8:26–8:45 / 5+ / 15+ / 30+ min early). Late and missed days share one muted tan (`miss`, a deeper shade of the blank `empty` tan; the heatmap uses the slightly darker `miss-dark` since its cells are tiny). No-data days stay blank. No purple.
 - Header reads "Good Morning, Zach".
 - Calendar starts on Sunday so the (untracked) weekend sits on the edges; the heatmap shows Mon–Fri only.
 - 🔥 shows next to the current streak when it equals the best streak.

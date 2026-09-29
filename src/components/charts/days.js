@@ -2,10 +2,15 @@ import { format, parseISO } from 'date-fns'
 import { formatTime12, getDays, hitLevel, toMinutes } from '../../lib/stats'
 
 export const HIT_FILLS = [null, 'bg-sun-200', 'bg-sun-300', 'bg-sun-400', 'bg-sun-500']
+export const MISS_FILL = 'bg-miss'
+export const HEATMAP_MISS_FILL = 'bg-miss-dark'
 
-// Only hits are colored; late, missed and untracked days stay blank.
-export function hitFill(day, settings) {
-  return day?.status === 'hit' ? HIT_FILLS[hitLevel(day.time, settings)] : null
+// Hits are shaded by how early they were; late and missed days get a muted tan;
+// pending and untracked days stay blank.
+export function dayFill(day, settings) {
+  if (day?.status === 'hit') return HIT_FILLS[hitLevel(day.time, settings)]
+  if (day?.status === 'late' || day?.status === 'missed') return MISS_FILL
+  return null
 }
 
 // Tracked days from `from` through today, keyed by 'yyyy-MM-dd'

@@ -15,13 +15,14 @@ import { trackingStart } from '../../lib/stats'
 import { Card, CardLabel } from '../ui/Card'
 import { useHoverTooltip } from '../../hooks/useHoverTooltip'
 import { ChartTooltip } from './ChartTooltip'
-import { daysByDate, describeDay, hitFill } from './days'
+import { dayFill, daysByDate, describeDay } from './days'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 function dayClasses(day, settings) {
   if (day?.status === 'pending') return 'text-ink ring-2 ring-sun-500 ring-inset'
-  return hitFill(day, settings) ? `${hitFill(day, settings)} text-ink` : 'text-ink-soft'
+  const fill = dayFill(day, settings)
+  return fill ? `${fill} text-ink` : 'text-ink-soft'
 }
 
 export function MonthCalendar({ state, onSelectDay, today = new Date() }) {

@@ -21,8 +21,12 @@
   --color-ink-soft: #8c6f5a;
   --color-line: #f3e3cc;
 
-  /* blank chart cell (missed, late, or no data) */
+  /* blank chart cell (no data) */
   --color-empty: #f2e6d6;
+  /* late or missed day: a deeper shade of the blank tan */
+  --color-miss: #dcc8ae;
+  /* heatmap cells are tiny, so late/missed needs a bit more weight there */
+  --color-miss-dark: #cdb597;
 
   --shadow-soft: 0 1px 2px rgb(184 90 20 / 0.04), 0 10px 28px -8px rgb(184 90 20 / 0.14);
 
