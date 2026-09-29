@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DEFAULT_SETTINGS } from '../lib/logins'
+import { DEFAULT_SETTINGS, MAX_NAME_LENGTH } from '../lib/logins'
 import { formatMinutes, formatTime12, toMinutes } from '../lib/stats'
 import { BackupSection, ImportConfirm } from './Backup'
 import { Button } from './ui/Button'
@@ -12,6 +12,7 @@ const INPUT =
 export function SettingsDialog({ state, onSave, onImport, onClose }) {
   const { settings } = state
   const [pendingImport, setPendingImport] = useState(null)
+  const [name, setName] = useState(settings.name)
   const [targetTime, setTargetTime] = useState(settings.targetTime)
   const [grace, setGrace] = useState(String(settings.graceMinutes))
   const [dayStart, setDayStart] = useState(settings.dayStart)
@@ -22,6 +23,7 @@ export function SettingsDialog({ state, onSave, onImport, onClose }) {
   const validDayStart = dayStart && targetTime && toMinutes(dayStart) < toMinutes(targetTime)
   const valid = targetTime && validGrace && validDayStart
   const deadline = valid ? formatMinutes(toMinutes(targetTime) + graceMinutes) : null
+  // Reset only touches the times; the name stays.
   const isDefault =
     targetTime === DEFAULT_SETTINGS.targetTime &&
     graceMinutes === DEFAULT_SETTINGS.graceMinutes &&
@@ -30,7 +32,7 @@ export function SettingsDialog({ state, onSave, onImport, onClose }) {
   const handleSubmit = (event) => {
     event.preventDefault()
     if (!valid) return
-    onSave({ targetTime, graceMinutes: Math.round(graceMinutes), dayStart })
+    onSave({ name: name.trim(), targetTime, graceMinutes: Math.round(graceMinutes), dayStart })
   }
 
   const resetToDefaults = () => {
@@ -58,11 +60,24 @@ export function SettingsDialog({ state, onSave, onImport, onClose }) {
         <DialogTitle label="Settings">Your morning goal</DialogTitle>
 
         <label className="block">
+          <span className="text-sm font-semibold text-ink-soft">Your name</span>
+          <input
+            type="text"
+            autoFocus
+            autoComplete="given-name"
+            placeholder="For the greeting"
+            maxLength={MAX_NAME_LENGTH}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="mt-1.5 block w-full rounded-2xl border border-line bg-white px-4 py-3 font-display text-2xl placeholder:text-ink-soft/50 focus:border-sun-400 focus:outline-none focus:ring-4 focus:ring-sun-200/60"
+          />
+        </label>
+
+        <label className="block">
           <span className="text-sm font-semibold text-ink-soft">Target time</span>
           <input
             type="time"
             required
-            autoFocus
             value={targetTime}
             onChange={(e) => setTargetTime(e.target.value)}
             className={INPUT}

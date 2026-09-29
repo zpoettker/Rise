@@ -82,7 +82,7 @@ describe('updateSettings', () => {
   it('replaces the given settings and keeps entries', () => {
     const state = recordLoginIfNeeded(createInitialState(), monday(8, 0))
     const updated = updateSettings(state, { targetTime: '07:45' })
-    expect(updated.settings).toEqual({ targetTime: '07:45', graceMinutes: 15, dayStart: '04:00' })
+    expect(updated.settings).toEqual({ ...DEFAULT_SETTINGS, targetTime: '07:45' })
     expect(updated.entries).toBe(state.entries)
   })
 })
@@ -120,6 +120,13 @@ describe('backups', () => {
   it('fills in missing or invalid settings with defaults', () => {
     const text = JSON.stringify({ entries: {}, settings: { targetTime: '07:15', graceMinutes: -5 } })
     expect(parseBackup(text).settings).toEqual({ ...DEFAULT_SETTINGS, targetTime: '07:15' })
+  })
+
+  it('keeps a trimmed name and ignores one that is not text', () => {
+    const named = parseBackup(JSON.stringify({ entries: {}, settings: { name: '  Sam  ' } }))
+    expect(named.settings.name).toBe('Sam')
+    const bad = parseBackup(JSON.stringify({ entries: {}, settings: { name: 42 } }))
+    expect(bad.settings.name).toBe('')
   })
 
   it('rejects files that are not backups', () => {

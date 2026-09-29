@@ -13,7 +13,7 @@ A small personal tracker for getting to work on time. Chrome opens the site on s
 - **Streaks and stats:** current and best streak, average log-on time, and hit rate over the last 7, 30 or 90 days, or all time.
 - **Year heatmap and month calendar:** hit days are gold, darker the earlier you logged on. Late and missed days are a muted tan.
 - **Edit past days:** click a calendar day to add, change or delete its log-on.
-- **Settings:** target time, grace period, and when a new day starts (default 4 AM, so a visit just after midnight still counts as the night before). Changing them re-grades past days.
+- **Settings:** your name for the greeting, target time, grace period, and when a new day starts (default 4 AM, so a visit just after midnight still counts as the night before). Changing them re-grades past days.
 - **Backup:** export all your data as a JSON file and import it back, e.g. after clearing the browser cache.
 - **A little celebration:** on a hit day the sun flares and ripples with gold light, and a new best streak gets its own moment. It plays once per day.
 

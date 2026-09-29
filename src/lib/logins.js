@@ -1,6 +1,9 @@
 import { format, isWeekend, subMinutes } from 'date-fns'
 
+export const MAX_NAME_LENGTH = 30
+
 export const DEFAULT_SETTINGS = {
+  name: '',
   targetTime: '08:30',
   graceMinutes: 15,
   dayStart: '04:00',
@@ -96,6 +99,7 @@ export function parseBackup(text) {
 
   const saved = data.settings ?? {}
   const settings = { ...DEFAULT_SETTINGS }
+  if (typeof saved.name === 'string') settings.name = saved.name.trim().slice(0, MAX_NAME_LENGTH)
   if (TIME.test(saved.targetTime)) settings.targetTime = saved.targetTime
   if (Number.isInteger(saved.graceMinutes) && saved.graceMinutes >= 0 && saved.graceMinutes <= 60) {
     settings.graceMinutes = saved.graceMinutes
