@@ -6,6 +6,7 @@ import { WeeklyBarsCard } from './components/charts/WeeklyBarsCard'
 import { YearHeatmap } from './components/charts/YearHeatmap'
 import { EditLoginDialog } from './components/EditLoginDialog'
 import { SettingsDialog } from './components/SettingsDialog'
+import { WorkTimerCard } from './components/WorkTimerCard'
 import { Card, CardLabel } from './components/ui/Card'
 import { GearIcon } from './components/ui/GearIcon'
 import { SegmentedControl } from './components/ui/SegmentedControl'
@@ -137,6 +138,7 @@ function App() {
           </div>
 
           {summary.week && <WeekProgressCard week={summary.week} />}
+          {tab === 'work' && <WorkTimerCard state={state} setState={setState} />}
 
           {!tracker.heatmapLast && <YearHeatmap tracker={tracker} state={state} today={today} />}
 

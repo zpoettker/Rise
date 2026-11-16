@@ -10,7 +10,7 @@ import {
   toMinutes,
   trackingStart,
 } from './stats'
-import { getWorkDays, getWorkStats, isWorkDay, workStart } from './work'
+import { getWorkDays, getWorkStats, isWorkDay, workHeading, workStart } from './work'
 import {
   getWorkoutDays,
   getWorkoutWeek,
@@ -169,6 +169,8 @@ function lastWorkoutLabel(state, today) {
 const work = {
   id: 'work',
   label: 'Work',
+  // replaces "Good Morning" at the top of the tab
+  heading: workHeading,
   start: workStart,
   days: getWorkDays,
   isTracked: isWorkDay,

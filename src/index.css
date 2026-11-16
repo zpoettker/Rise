@@ -29,16 +29,17 @@
   --color-sea-900: #1c2e4f;
 
   /* work: fresh leaf green */
-  --color-leaf-50: #effaf0;
-  --color-leaf-100: #d9f2dc;
-  --color-leaf-200: #b2e3b9;
-  --color-leaf-300: #84cd91;
-  --color-leaf-400: #5bb56d;
-  --color-leaf-500: #3f9a54;
-  --color-leaf-600: #317d44;
-  --color-leaf-700: #2a6338;
-  --color-leaf-800: #244e2f;
-  --color-leaf-900: #1c3a24;
+  /* work: a fresh leaf green, halfway between vivid green and olive */
+  --color-leaf-50: #effaeb;
+  --color-leaf-100: #d9f3d2;
+  --color-leaf-200: #b1e5a4;
+  --color-leaf-300: #85d574;
+  --color-leaf-400: #5ac148;
+  --color-leaf-500: #409d34;
+  --color-leaf-600: #18831a;
+  --color-leaf-700: #146816;
+  --color-leaf-800: #19491a;
+  --color-leaf-900: #133715;
 
   /* all trackers together: warm ember red */
   --color-ember-50: #fff2f0;
@@ -247,8 +248,8 @@
   --color-accent-700: var(--color-leaf-700);
   --color-accent-800: var(--color-leaf-800);
   --color-accent-900: var(--color-leaf-900);
-  --glow-strong: #def1dc;
-  --glow-soft: #eff7ea;
+  --glow-strong: #d9f3d1;
+  --glow-soft: #eef9ea;
 }
 
 @layer base {

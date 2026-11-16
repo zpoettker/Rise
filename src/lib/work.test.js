@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialState, updateSettings } from './logins'
-import { getWorkDays, getWorkStats, workLevel } from './work'
+import { getWorkDays, getWorkStats, workHeading, workLevel } from './work'
 
 // Nov 2026: Mon 2 … Fri 6, weekend 7–8, Mon 9, Tue 10
 const day = (d, h = 23) => new Date(2026, 10, d, h, 0)
@@ -60,5 +60,26 @@ describe('getWorkStats', () => {
     expect(stats.bestStreak).toBe(4)
     expect(stats.partial).toBe(1)
     expect(stats.averageMinutes).toBeCloseTo((6 + 3 + 6 + 6 + 7 + 6.5) * 10)
+  })
+})
+
+describe('workHeading', () => {
+  const heading = (hours, running = false) => {
+    const state = stateWith(hours == null ? {} : { 10: hours })
+    if (running) state.timer = { mode: 'stopwatch', startedAt: 1, elapsedBefore: 0 }
+    return workHeading(state, day(10))
+  }
+
+  it('follows how much is logged today against the goal', () => {
+    expect(heading(null)).toBe('Time to Build')
+    expect(heading(0.25)).toBe('Time to Build') // under 30 min
+    expect(heading(2)).toBe('In the Zone')
+    expect(heading(6)).toBe('Brick by Brick')
+  })
+
+  it('shows Flow State while the timer runs, unless the goal is already reached', () => {
+    expect(heading(null, true)).toBe('Flow State')
+    expect(heading(2, true)).toBe('Flow State')
+    expect(heading(7, true)).toBe('Brick by Brick')
   })
 })

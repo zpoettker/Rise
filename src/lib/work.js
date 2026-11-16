@@ -43,6 +43,18 @@ export function getWorkDays(state, from, today = new Date()) {
     })
 }
 
+// Under this much logged today still counts as just getting started
+export const WARM_UP_MINUTES = 30
+
+// The Work tab's heading: the goal reached wins, then a running timer, then
+// how much is logged today.
+export function workHeading(state, today = new Date()) {
+  const minutes = totalsByDay(state.workSessions, state.settings)[toDateKey(today)]?.minutes ?? 0
+  if (minutes >= state.settings.workGoalMinutes) return 'Brick by Brick'
+  if (state.timer?.startedAt) return 'Flow State'
+  return minutes >= WARM_UP_MINUTES ? 'In the Zone' : 'Time to Build'
+}
+
 export function getWorkStats(state, range = '30d', today = new Date()) {
   const start = workStart(state)
   const { current, best } = streaks(getWorkDays(state, start ?? today, today))

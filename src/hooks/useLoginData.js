@@ -2,17 +2,25 @@ import { useEffect, useState } from 'react'
 import { createDemoState } from '../lib/demo'
 import { recordLoginIfNeeded } from '../lib/logins'
 import { loadState, saveState } from '../lib/storage'
+import { settleTimer } from '../lib/timer'
 
 const params = new URLSearchParams(window.location.search)
 const DEMO = import.meta.env.DEV && params.has('demo')
 const CELEBRATE = params.has('celebrate')
 const WEEK = params.has('week') ? Number(params.get('week')) : null
+const WORK = params.has('work') ? Number(params.get('work')) : null
 
 // Loads saved data and records today's login on mount and whenever the tab
 // becomes visible again (covers Chrome being left open overnight).
 export function useLoginData() {
   const [state, setState] = useState(() =>
-    DEMO ? createDemoState(new Date(), { hitToday: CELEBRATE, weekWorkouts: WEEK }) : recordLoginIfNeeded(loadState()),
+    DEMO
+      ? createDemoState(new Date(), {
+          hitToday: CELEBRATE,
+          weekWorkouts: WEEK,
+          todayWorkHours: WORK,
+        })
+      : settleTimer(recordLoginIfNeeded(loadState())),
   )
 
   useEffect(() => {
@@ -22,7 +30,7 @@ export function useLoginData() {
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        setState((s) => recordLoginIfNeeded(s))
+        setState((s) => settleTimer(recordLoginIfNeeded(s)))
       }
     }
     document.addEventListener('visibilitychange', onVisible)

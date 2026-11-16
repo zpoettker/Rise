@@ -38,7 +38,7 @@ Personal morning log-on tracker. Chrome opens the Vercel site on startup; the fi
   - [x] High-score moment (`isNewBestToday`): when today's hit beats the old best streak (2+ days), a gold shimmer sweeps the streak card, the number pops, and a "New best!" pill stays for the day.
 
 ## Status (2026-11-16)
-v1 (phases 0–6) is complete. **v2 (multi-tracker + backend) is in progress: Stages 0–1 done (branch `v2-stage-1`), Stage 2 (UI design pass) next.** Stages were reordered on 2026-11-16: UI → work timer → backend → settings → Strong.
+v1 (phases 0–6) is complete. **v2 (multi-tracker + backend) is in progress on branch `v2-stage-1`: Stages 0–1 done; Stage 2 (UI design pass) underway.** Morning done; Workout tab done for now; **Work tab in progress**: Focus timer card, headings, leaf green and presets are in. **Next up:** Work goal history, then the hours-vs-goal bar chart and hours-shaded heatmap/calendar (see Stage 2 → Work tab). Stages were reordered on 2026-11-16: UI → work timer → backend → settings → Strong.
 
 ---
 
@@ -86,6 +86,7 @@ Grow Rise from a single morning tracker into three trackers that share one dashb
 - `workouts` — `id`, `user_id`, `date`, `started_at`, `ended_at`, `duration_min`, `title`, `source` (`health` | `strong_csv` | `manual`), `external_id` (dedupe), `details jsonb` (exercises/sets when available). Unique `(user_id, source, external_id)`.
 - `work_sessions` — `id`, `user_id`, `date`, `started_at`, `ended_at` (null = timer running), `note`.
 - `api_tokens` — `id`, `user_id`, `token_hash`, `label`, `last_used_at`.
+- `weights` — `id`, `user_id`, `date`, `measured_at`, `kg` (stored in kg, shown in the user's unit), `source` (`health` | `manual`), `external_id` (dedupe). Unique `(user_id, source, external_id)`.
 
 ## Getting Strong workouts in (decided 2026-11-16)
 Strong has no public API or webhook. **Chosen route: Strong → Apple Health → iOS Shortcut → `/api/ingest/workout`.**
@@ -109,7 +110,7 @@ Rejected / fallback options:
 
 - [x] **Stage 1 — Tracker tabs + theming (frontend only, still localStorage).** Done 2026-11-16, committed and pushed to branch `v2-stage-1` (not merged to `main`, so the live site is unchanged).
   - Tabs: grey icons left of the range selector (sun = Morning, Strong-style dumbbell = Workout, laptop = Work; `components/ui/TrackerIcons.jsx`) and "All" as text. Selected tab remembered per browser (`rise:tab`).
-  - Theme: each tab recolours the page (buttons, heatmap, calendar, ring, top glow): Morning gold (`sun-*`), Workout blue (`sea-*`), Work green (`leaf-*`), All red (`ember-*`). Done with `accent-*` tokens (`@theme static`) re-pointed by `<html data-tracker>` (`hooks/useTrackerTab.js`); an explicit `[data-tracker='morning']` rule keeps morning parts gold inside other themes.
+  - Theme: each tab recolours the page (buttons, heatmap, calendar, ring, top glow): Morning gold (`sun-*`), Workout blue (`sea-*`), Work green (`leaf-*`, retuned 2026-11-16 to a leaf green halfway between vivid green and olive; GitHub's greens and a full olive were tried and dropped), All red (`ember-*`). Done with `accent-*` tokens (`@theme static`) re-pointed by `<html data-tracker>` (`hooks/useTrackerTab.js`); an explicit `[data-tracker='morning']` rule keeps morning parts gold inside other themes.
   - Header: the animated sun only on Morning; Workout/Work show their icon large in the tab colour with a soft glow; All shows the three icons together. Morning celebrations only play on the Morning tab.
   - Logic: `lib/trackers.js` has one config per tracker (days, tooltip text, legend, stat cards, ring, headline) so the charts are shared. `lib/workouts.js`: weekly-goal streak (distinct workout days per Mon–Sun week, default goal 3, current week never breaks it), heatmap shaded by length, no-workout days are rest days. `lib/work.js`: daily goal (default 6h), `partial` = some time under goal (tan). `lib/spans.js`: shared helpers for `{ id, start, end }` spans; a span belongs to `dayOf(start)`.
   - Morning "Track weekends" setting (`morningWeekends`, default off) in the settings popup.
@@ -139,18 +140,35 @@ Stages 2–3 stay frontend-only on `localStorage` (with `/?demo` for previewing)
     - [x] "This week" progress card (`WeekProgressCard.jsx`), full width under the stat cards: date range, Mon–Sun dots (worked / rest / coming up, today ringed), "4 / 3 workout days", status ("2 more to go · 4 days left" or "Goal crushed · 1 extra") with the week's total time, and a progress bar with one slot per goal day, growing to one per workout day when over (4/3 → 4 slots, all full), darker once met. Under the goal the fill is plain blue (`.bar-in`, grows in on load). **Once the goal is met** it becomes the animated "energy" fill (`.energy` in `index.css`, uses accent tokens so other tabs can reuse it): big right-pointing chevrons (20px bands) in three shades (`accent-400/500/600`) marching right, with a soft static glow. Earlier versions with flowing gradients, rolling wave arcs, a light surge and a glowing spark were tried and simplified away (too busy). Turned off with reduced motion. Data from `getWorkoutWeek`. The line under the heading now says when the last workout was ("Worked out today · 52m", "Last workout yesterday / on Thursday / on Oct 3") instead of the weekly count.
     - [x] Order: stat cards → This Week → calendar + bar chart → year heatmap last (tracker `heatmapLast`), so the calendar/graph show without scrolling. Chosen over a "version A" with a compact one-row This Week card and the heatmap above the calendar (2026-11-16).
   - [x] **All tabs:** heatmap weekday labels (Mon/Wed/Fri/Sun) stay pinned on the left when the heatmap scrolls sideways.
-    - [ ] More Workout cards/stats: maybe later; nothing planned.
-  - **Work tab:** layout placeholder for the Start/Stop hero and running clock (no timer logic yet; it's built in Stage 3).
+    - [ ] **Lifetime workouts milestone** card (moved here from the Work ideas, 2026-11-16): a progress bar toward the next milestone, e.g. "114 / 150 workouts", with milestones like 25, 50, 100, 150, 250, 500, 1,000. Crossing one plays a small celebration. Always moves forward, even in slow weeks.
+    - [ ] **Weight chart** card (added 2026-11-16): weight over time as a line chart following the 7d / 30d / 90d / All range, with each weigh-in as a dot, a smoothed line (e.g. 7-day average) so daily swings don't hide the trend, and the change over the range ("−4.2 lb in 30 days"). Optional goal weight drawn as a line. Units lb or kg (setting). Hover a point for date and weight. Until the scale is connected (Stage 6): manual add/edit/delete of weigh-ins, and `/?demo` fills sample weights. State gets `weights: [{ id, date, time, value, unit }]`; backups include it.
+    - [ ] More Workout cards/stats: maybe later.
+  - **Work tab:** in progress. Purpose: track and grow daily hours of deep work, ramping the goal from ~2h toward 8–10h, so the visuals show improvement over time, not only goal hits. The Focus timer card (Stage 3 below) went in first, built together with its design.
+    - [x] Heading changes with today (`workHeading`): goal reached → "Brick by Brick"; timer running → "Flow State"; 30 min or more logged → "In the Zone"; less → "Time to Build".
+    - [x] Green retuned to a fresh leaf green (halfway between vivid green and olive). Timer presets 15m / 25m / 30m / 45m / 1h.
+    - [ ] **Goal history** (needed by everything below): `workGoalMinutes` becomes a dated list, e.g. `[{ from: '2026-11-03', minutes: 120 }, { from: '2026-11-17', minutes: 150 }]`. Each day is graded against the goal in effect that day, so raising the goal never turns old met days into misses; streaks, hit rate, headings and the Today bar use each day's own goal. A change starts **next Monday by default**, with a "start today" option; two changes on the same start date replace each other. Settings gets a "Daily goal" field in a Work section plus a short list of past changes (pulled forward from Stage 5). Old backups and saved data turn their single goal into the first entry.
+    - [ ] **Heatmap + calendar shaded by hours worked** (absolute hours, not goal hit), so they darken as hours grow over the months. The calendar also **rings each day that met its goal** (outline in the accent colour); under-goal days with some time keep their hours shade without the ring. Tooltips show "2h 40m · goal 2h 30m". Legend shows the hour steps plus "Goal met" ring.
+    - [ ] **Hours vs. goal bar chart** (replaces the hit-rate ring next to the calendar, like Workout's weekly chart): one bar per day of hours worked, solid when that day's goal was met and light when under; the goal drawn as a **step line** that rises each time the goal is raised, so bars and steps "stair up" together. Follows the 7d / 30d / 90d / All range; at 90d and All it switches to **weekly average** bars so they don't get too thin. Hover a bar to highlight it and show the day's hours and goal. (No trend line, decided 2026-11-16.)
+    - [ ] **Brick wall** card (fits the "Brick by Brick" heading): every hour of deep work lays a brick in this week's wall, partial hours as partial bricks; each day is a row (Mon–Sun). A day that meets its goal gets a cap-stone and a small settle/drop animation. Rewards every hour, not only met goals.
+    - [ ] **Personal records** card: longest day, longest single focus block, best week total. Beating one shows a "New record!" badge for the day (like Morning's "New best!").
+    - [ ] **Today's timeline**: a morning-to-evening strip showing today's sessions as blocks (breaks as gaps), including the running stretch live. Extra: a **week view** with one strip per weekday (Mon–Sun), so you can see when in the day you focused each day.
   - **Day dialogs:** design the Workout and Work calendar-day popups (list of workouts/sessions). They show the data for now; editing comes in Stages 3 and 6.
   - **Per-tracker celebrations:** blue/green versions of the sun flare for a workout-goal hit and a work-goal hit. The greeting changes by tab and time of day.
   - Done when: Zach is happy with how all four tabs look on desktop using `/?demo`. Phone layout is fixed in Stage 6.
 
 - [ ] **Stage 3 — Work timer (green, still localStorage).**
-  - Work tab hero: big Start / Stop button + running clock (`3:42:10 today`). A running session is a `workSessions` entry with `end = null`, so it survives closing the tab and reloads. (It shows on other devices once Stage 4 moves it to `work_sessions`.) Optional pause = stop + start.
-  - Guard rails: warn on a session running > 12h; if a session is still running at the day boundary (day start time), split it across the two days.
+  - [x] **Focus timer card** (`WorkTimerCard.jsx`, logic in `lib/timer.js`), full width under the Work stat cards (2026-11-16):
+    - Stopwatch or Timer mode (segmented toggle). Timer presets 15m / 25m / 30m / 45m / 1h (25m selected by default) plus a custom minutes field (1–720).
+    - Big ring with the clock: counts up (ring loops each hour) or down (ring fills as time passes). Pulsing dot while running. Heading changes: "Start a work session" / "On the clock" / "50m block" / "Taking a break" / "Nice work".
+    - Start → Pause / Stop & save → Resume. A finished countdown saves itself, plays a soft two-note chime and shows "Time's up" with Done. The running clock also shows in the browser tab title.
+    - "Today 1h 35m of 6h" bar with a notch per hour; plain green under the goal, the chevron energy fill once reached. Counts the running stretch live.
+    - Storage: the running timer lives in `state.timer` (mode, duration, startedAt, elapsedBefore, done), saved with the rest of `rise:data`, so it survives reloads and closing the tab. Each finished stretch (pause, stop, or countdown end) is saved as a normal `workSessions` span, rounded to whole minutes (under 30 s is dropped). So saved sessions are always complete and stats/backups never see a half-finished one. Backups leave `timer` out. (Stage 4 can still store a running session as a `work_sessions` row with `ended_at = null` for cross-device.)
+    - A countdown that ran out while the tab was closed is saved up to its exact end on the next load (`settleTimer`).
+    - [x] Guard rails: a stretch that crosses the day start (4 AM) is split across the two days; a note appears after 12h running.
+    - Unit tests in `lib/timer.test.js`.
   - Click a calendar day → dialog listing that day's sessions; add/edit/delete manually (start/end times, optional note).
   - Stats per the table above, using the existing `workGoalMinutes` (default 6h) and `workWeekends` values. Their settings controls come in Stage 5.
-  - Unit tests for timer spans: running sessions, splitting at the day start, edits.
+  - Unit tests for editing sessions.
   - Done when: a day of real timing shows correctly on the green dashboard and survives a reload.
 
 - [ ] **Stage 4 — Backend + login + migration (all trackers).**
@@ -185,7 +203,8 @@ Stages 2–3 stay frontend-only on `localStorage` (with `/?demo` for previewing)
     - Headings wrap awkwardly next to the big header icon (e.g. "Goal Crushed 💪" puts 💪 on its own line); shrink the icon and heading on small screens.
     - Check every tab and popup at phone width.
   - Wrap-up: update README (features, Supabase setup, Shortcut guide) and this plan, then merge to `main`. Sweep the open items and anything left over from earlier stages.
-  - Done when: finishing a workout in Strong shows up in Rise without touching the computer.
+  - **Weight from the smart scale:** smart scale app → Apple Health (Body Mass) → iOS Shortcut → `/api/ingest/weight` (same API token as workouts). Unlike workouts, Apple's built-in **Find Health Samples** action can read Body Mass, so the Actions app may not be needed. Trigger: a Personal Automation when the scale's app closes, or a daily time automation; same send-once idea (only samples newer than the last sent). Server dedupes. To check first: which scale/app Zach has and that it writes to Health. A one-time history import of past Health weights.
+  - Done when: finishing a workout in Strong shows up in Rise without touching the computer, and a weigh-in on the scale shows on the weight chart.
 
 ## Open items
 - Merge `v2-stage-1` into `main` when Zach is happy with it, or keep stacking stages on the branch. Until Stage 4, merging only changes the UI, since data stays in localStorage on the same domain.
@@ -197,6 +216,7 @@ Stages 2–3 stay frontend-only on `localStorage` (with `/?demo` for previewing)
 - Morning: gets the same weekend toggle.
 - Login: magic link and Google.
 - Multi-user: open sign-ups.
+- Weight chart on the Workout tab, fed by the smart scale through Apple Health + Shortcut (2026-11-16).
 - Workouts come in via Strong → Health → Shortcut with the free Actions app's Find Workout (2026-11-16).
 - Look: tabs are icons; each tracker has its own colour (gold / blue / green / red for All); the sun is Morning-only (2026-11-16).
 - Phone visual fixes are collected and done last, in Stage 6 (2026-11-16).
@@ -208,7 +228,8 @@ Stages 2–3 stay frontend-only on `localStorage` (with `/?demo` for previewing)
 
 ## Dev notes
 - `npm run dev`, then open `/?demo` to preview with ~8 months of fake data for all three trackers (dev only, never saved).
-- `/?demo&week=2` sets how many days this week have a workout (previews the progress card under/on/over goal).
+- `/?demo&week=2` sets how many days this week have a workout (previews the progress card under/on/over goal). It fills the first N days of the Mon–Sun week, using days still to come if needed, so it works on any day.
+- `/?demo&work=7` sets how many hours of work are logged today (decimals work, e.g. `5.5`), to preview the Today bar under/over the goal.
 - `/?demo&celebrate` (or `/?celebrate` on real data) replays the hit celebration and new-best moment on every load (dev only).
 - `npm run test` (Vitest), `npm run lint`, `npm run build`.
 - Data lives in `localStorage` under `rise:data`. Settings saved there override the defaults in `logins.js`; change them from the gear in the header.

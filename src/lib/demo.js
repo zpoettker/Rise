@@ -1,4 +1,5 @@
 import {
+  addDays,
   addMinutes,
   eachDayOfInterval,
   format,
@@ -17,7 +18,11 @@ const at = (day, minutes) => setMinutes(setHours(day, 0), minutes)
 // Fake history for previewing the UI in dev (open the app with ?demo). Never saved.
 // `hitToday` adds an early log-on today (used by ?demo&celebrate).
 // `weekWorkouts` sets how many days this week had a workout (?demo&week=2).
-export function createDemoState(today = new Date(), { hitToday = false, weekWorkouts = null } = {}) {
+// `todayWorkHours` sets how much work is logged today (?demo&work=7).
+export function createDemoState(
+  today = new Date(),
+  { hitToday = false, weekWorkouts = null, todayWorkHours = null } = {},
+) {
   const state = createInitialState()
   const target = toMinutes(state.settings.targetTime)
 
@@ -42,11 +47,13 @@ export function createDemoState(today = new Date(), { hitToday = false, weekWork
     state.workouts.push({ id: `w${id++}`, start: stamp(start), end: stamp(addMinutes(start, between(25, 75))) })
   }
 
-  // replace this week's workouts with one on each of the first N days (up to today)
+  // replace this week's workouts with one on each of the first N days of the
+  // Mon–Sun week. Early in the week that includes days still to come, so any
+  // count can be previewed whatever today is.
   if (weekWorkouts != null) {
-    const weekStart = toDateKey(startOfWeek(today, { weekStartsOn: 1 }))
-    state.workouts = state.workouts.filter((w) => w.start.slice(0, 10) < weekStart)
-    const week = eachDayOfInterval({ start: startOfWeek(today, { weekStartsOn: 1 }), end: today })
+    const monday = startOfWeek(today, { weekStartsOn: 1 })
+    state.workouts = state.workouts.filter((w) => w.start.slice(0, 10) < toDateKey(monday))
+    const week = eachDayOfInterval({ start: monday, end: addDays(monday, 6) })
     for (const day of week.slice(0, weekWorkouts)) {
       const start = at(day, between(6 * 60, 19 * 60))
       state.workouts.push({ id: `w${id++}`, start: stamp(start), end: stamp(addMinutes(start, between(25, 75))) })
@@ -64,6 +71,22 @@ export function createDemoState(today = new Date(), { hitToday = false, weekWork
       const length = isToday ? 95 : between(100, 200)
       state.workSessions.push({ id: `s${id++}`, start: stamp(start), end: stamp(addMinutes(start, length)) })
       clock += length + between(20, 75)
+    }
+  }
+
+  // replace today's work with sessions adding up to N hours, from 8 AM in
+  // blocks of up to 2h with 15 min breaks (later blocks may be in the future)
+  if (todayWorkHours != null) {
+    const todayKey = toDateKey(today)
+    state.workSessions = state.workSessions.filter((s) => s.start.slice(0, 10) !== todayKey)
+    let left = Math.round(todayWorkHours * 60)
+    let clock = 8 * 60
+    while (left > 0) {
+      const length = Math.min(left, 120)
+      const start = at(today, clock)
+      state.workSessions.push({ id: `s${id++}`, start: stamp(start), end: stamp(addMinutes(start, length)) })
+      left -= length
+      clock += length + 15
     }
   }
 
