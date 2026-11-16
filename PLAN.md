@@ -37,8 +37,8 @@ Personal morning log-on tracker. Chrome opens the Vercel site on startup; the fi
   - [x] Hit celebration: the sun flares (and stays a bit brighter), rays swell, two gold halo rings ripple out, a warm dawn wash fades over the top of the page, then "18 min early" rises in. Late days get a calm "12 min late", no celebration. Header also says "Not logged on yet" on an unlogged weekday instead of "Enjoy your weekend".
   - [x] High-score moment (`isNewBestToday`): when today's hit beats the old best streak (2+ days), a gold shimmer sweeps the streak card, the number pops, and a "New best!" pill stays for the day.
 
-## Status (2026-11-15)
-v1 (phases 0–6) is complete. **v2 (multi-tracker + backend) is planned below and not started.**
+## Status (2026-11-16)
+v1 (phases 0–6) is complete. **v2 (multi-tracker + backend) is in progress: Stages 0–1 done (branch `v2-stage-1`), Stage 2 next.**
 
 ---
 
@@ -78,7 +78,7 @@ Grow Rise from a single morning tracker into three trackers that share one dashb
 - **Day keys stay local:** the client (or Shortcut) sends local `yyyy-MM-dd` + `HH:mm`, never derives the day on the server, so time zones and the 4 AM day start work as today.
 - Alternatives considered: Vercel Functions + Neon + Auth.js (more glue code, no built-in RLS); Firebase (non-relational, awkward for stats queries).
 
-#- **Multi-user:** open sign-ups, anyone can create an account. Every row is scoped by RLS; settings live per user in `profiles`; the API token/Shortcut setup must be self-serve (shared iCloud Shortcut link + in-app instructions). New accounts get a first-run setup (name, target time, which trackers, weekly/daily goals) — pulls the "First-run setup" idea forward.
+- **Multi-user:** open sign-ups, anyone can create an account. Every row is scoped by RLS; settings live per user in `profiles`; the API token/Shortcut setup must be self-serve (shared iCloud Shortcut link + in-app instructions). New accounts get a first-run setup (name, target time, which trackers, weekly/daily goals) — pulls the "First-run setup" idea forward.
 
 ### Draft schema
 - `profiles` — `user_id`, `name`, `settings jsonb` (target, grace, day start, work goal, enabled trackers later).
@@ -87,41 +87,36 @@ Grow Rise from a single morning tracker into three trackers that share one dashb
 - `work_sessions` — `id`, `user_id`, `date`, `started_at`, `ended_at` (null = timer running), `note`.
 - `api_tokens` — `id`, `user_id`, `token_hash`, `label`, `last_used_at`.
 
-## Getting Strong workouts in
-Strong has no public API. Options, best first:
-1. **Strong → Apple Health → iOS Shortcut → our API (recommended, automatic).** Turn on Strong's Apple Health sync. A Shortcut runs as a Personal Automation (trigger: *when Strong is closed*, and/or a daily time), runs *Find Health Samples → Workouts* for today, and POSTs start/end/duration/type to `/api/ingest/workout` with the API token. Dedupe on start time so repeat runs are harmless. Health only carries the summary (time, duration, calories), not sets/reps.
-2. **Strong CSV export → Shortcut (manual, detailed).** Strong → Settings → Export data → share the CSV to a "Send to Rise" Shortcut, which uploads it; the server parses exercises/sets into `details` and merges with Health rows by start time. Good for an occasional backfill / detail fill-in.
-3. **Unofficial Strong API (e.g. a community Rust/Python syncer).** Most detailed and fully automatic, but reverse-engineered: can break at any time, needs your Strong password stored on a server, and may be against Strong's ToS. Not recommended unless 1+2 fall short.
+## Getting Strong workouts in (decided 2026-11-16)
+Strong has no public API or webhook. **Chosen route: Strong → Apple Health → iOS Shortcut → `/api/ingest/workout`.**
+- Strong writes each finished workout to Apple Health (Strong → Settings → Apple Health). Health only has the summary: start, end, duration, calories. No sets/reps.
+- Apple's built-in Shortcuts Health action (**Find Health Samples**) **cannot read workouts** (no Workouts type), so the Shortcut uses the **Find Workout** action from the free **Actions** app by Sindre Sorhus (https://sindresorhus.com/actions, iOS 26+, no ads/IAP). Confirmed on Zach's iPhone: it returns Strong workouts with start and end date/time. It shows no usable source/app field, so the Shortcut sends all workouts in Health.
+- Trigger: Personal Automation **App → Strong → Is Closed → Run Immediately**, "Notify When Run" off. "Is Closed" fires whenever you leave Strong (home, app switch, lock), not only on force-quit; confirmed it runs. Optional nightly backup automation. Send-once design is in Stage 4.
+- Each user sets this up themselves (needs Strong, the Actions app, our shared Shortcut and their Rise API token), so it works for a multi-user app.
+- **Past workouts:** a one-time **Strong CSV export** import (has exercises/sets too). Sample CSV still to be provided by Zach (Strong → Settings → Export Strong Data).
 
-**Stage 0 finding (2026-11-15):** Strong → Apple Health works (workouts show with start time + duration), but **Shortcuts' Find Health Samples has no Workouts type** (list goes Water → Weight → … → Zinc), so option 1 as written is out. Replacement options:
-- **1b. Health Auto Export (third-party iOS app, paid tier) → our API.** Reads workouts from HealthKit and POSTs JSON to a REST URL on a schedule/in the background, with a custom header for our API token. Automatic, and other users can set it up themselves. Costs the user money and depends on a third-party app.
-- **2. Strong CSV export → Shortcut upload** (above): free, works for everyone, has sets/reps, but you tap to send it.
-- Manual add in the app always works as a fallback.
-- Tried: Active Energy as a proxy (Shortcuts can read Active Energy). Dead end: Strong attaches calories to the workout itself ("Related Samples: 99.9 cal" opens to "No Data"; newest Active Energy entry in Health is from 2023). Strong's "reset historic workouts" note only recalculates the workout's total, it doesn't create samples. **Shortcuts cannot see Strong workouts at all.**
-- Also possible but heavy: a small native iOS companion app reading HealthKit (needs a Mac + Xcode + $99/yr Apple developer account for other users).
-- **Found (2026-11-16): the free "Actions" app by Sindre Sorhus** (https://sindresorhus.com/actions, iOS 26+, no ads/IAP) adds a **Find Workout** Shortcuts action that reads workouts from Health (type, duration, source, calories…). **Confirmed 2026-11-16:** it returns the Strong workout from Health with start and end date/time. → **Option 1 is back on: Strong → Health → Shortcut (Actions "Find Workout") → `/api/ingest/workout`.** Automation confirmed; no source field needed.
-- Unofficial Rust syncer `tolik518/strong-api-workout-sync`: logs in with the Strong username/password, polls a hidden Strong backend URL (not published in the repo), full set detail, no license, 9 stars. Free and automatic but needs each user's Strong password on our server and can break anytime → not for a multi-user app.
-Leaning: build the ingest endpoint to accept both (Health Auto Export JSON + Strong CSV), so each user picks. Pending Zach's call.
-
-**Risk to check first (Stage 0):** confirm on the iPhone that Shortcuts can read Strong's workouts from Health and that the "app closed" automation runs without a confirmation prompt.
+Rejected / fallback options:
+- **Active Energy as a proxy:** dead end. Strong stores calories inside the workout ("Related Samples: 99.9 cal" opens to "No Data"; no Active Energy entries from Strong), and Strong's "reset historic workouts" only recalculates that total.
+- **Health Auto Export** (iOS app): automatic REST push of workouts, but the REST feature is a paid tier. Possible later add-on; the ingest endpoint should stay generic enough to accept it.
+- **Strong CSV via Shortcut** as the main route: free and detailed but manual (tap to send). Kept for history import only.
+- **Unofficial Strong API** (e.g. Rust `tolik518/strong-api-workout-sync`): needs each user's Strong password and a hidden backend URL, can break anytime, possible ToS issue. Not for a multi-user app.
+- **Native iOS companion app reading HealthKit:** works, but needs a Mac, Xcode and a $99/yr Apple developer account. Not worth it.
+- Manual add/delete in Rise is always available as a fallback.
 
 ## Stages
 
-- [x] **Stage 0 — Phone spike (done 2026-11-16).** Result: Strong → Health works; Shortcuts' built-in Health action can't read workouts, but the free Actions app's **Find Workout** can (start + end date/time; no usable source field, so the Shortcut sends all workouts); the "Strong → Is Closed" automation runs when leaving the app. Sample Strong CSV deferred to Stage 4. (no code, ~30 min, can run alongside Stage 1).**
-  - Enable Strong → Apple Health. Log/finish a workout.
-  - Build a test Shortcut: Find Health Samples (Workouts, today) → show result. Check which fields come through (start, end, duration, type, source name "Strong").
-  - Try a Personal Automation "When Strong is closed" → run that Shortcut, with "Run immediately" on.
-  - Export a Strong CSV once and keep it as a sample for Stage 4.
-  - Outcome: decide option 1 vs. 1+2, lock the `workouts` payload shape.
+- [x] **Stage 0 — Phone spike (done 2026-11-16).** Proved the iPhone side works before writing code: Strong → Health works; the Actions app's Find Workout reads workouts (start + end); the "Strong → Is Closed" automation runs. Details in "Getting Strong workouts in" above. Strong CSV sample deferred to Stage 4.
 
-- [x] **Stage 1 — Tracker tabs + theming (frontend only, still localStorage).** Built on branch `v2-stage-1` (2026-11-16), awaiting Zach's review before merging to `main`.
-  - As built: `lib/trackers.js` holds one config per tracker (days, describe, legend, summary → cards/ring/headline); `lib/workouts.js` (week-based streak, distinct workout days per Mon–Sun week), `lib/work.js` (daily goal, `partial` = some time under goal), `lib/spans.js` (shared `{ id, start, end }` helpers; a span belongs to `dayOf(start)`). State is v2: `workouts: []`, `workSessions: []`, new settings `morningWeekends`, `workoutWeeklyGoal` (3), `workGoalMinutes` (360), `workWeekends`; backups round-trip them and v1 backups still import. Theme: `@theme static` + `accent-*` tokens swapped by `<html data-tracker>` (`hooks/useTrackerTab.js`, tab remembered in `rise:tab`); the page glow follows the accent. Morning celebrations only play on the Morning tab. Tabs are grey icons (sun, Strong-style dumbbell, laptop; `components/ui/TrackerIcons.jsx`) with "All" as text. The animated sun is Morning-only; Workout/Work show their icon large in the accent colour with a soft glow, All shows the three icons together. All has its own red theme (`ember-*` scale, `data-tracker='all'`); morning parts inside it stay gold via an explicit `[data-tracker='morning']` rule. All tab is a placeholder (three streak cards + three headline lines). Only Morning days are editable; Workout/Work calendar days show tooltips.
-  - Accent tokens: add `--color-sea-*` (blue) and `--color-leaf-*` (green) 50–900 scales next to `sun-*`. Introduce semantic `--color-accent-50…900` that default to `sun-*` and are swapped by a `data-tracker="workout|work"` wrapper. Replace hard-coded `sun-*` in shared components (`SegmentedControl`, `Card`, charts, `Sun`, celebration) with `accent-*` (~33 usages).
-  - Tracker abstraction: a `trackers/` module where each tracker defines `{ id, label, color, isTrackedDay, classifyDay(dateKey) → {status, level, detail}, statCards }`. Generalize `stats.js` (`getDays`, `streaks`, `getStats`) to take a tracker instead of reading `state.entries` + morning rules directly. Morning becomes the first tracker; existing tests keep passing.
-  - Tabs on the left of the range row; selected tab changes the accent + the data shown. Workout/Work show the full layout with an empty state until they have data. "All" is a placeholder.
-  - Morning weekend toggle: `includeWeekends` setting (default false) used by `recordLoginIfNeeded`, `getDays` and the heatmap (Mon–Fri vs. full week rows); checkbox in the settings dialog; `parseBackup` accepts it.
-  - Demo mode (`/?demo`) generates fake data for all three trackers so the colours can be reviewed.
-  - Done when: Morning looks identical to today; switching tabs re-themes everything; tests pass.
+- [x] **Stage 1 — Tracker tabs + theming (frontend only, still localStorage).** Done 2026-11-16, committed and pushed to branch `v2-stage-1` (not merged to `main`, so the live site is unchanged).
+  - Tabs: grey icons left of the range selector (sun = Morning, Strong-style dumbbell = Workout, laptop = Work; `components/ui/TrackerIcons.jsx`) and "All" as text. Selected tab remembered per browser (`rise:tab`).
+  - Theme: each tab recolours the page (buttons, heatmap, calendar, ring, top glow): Morning gold (`sun-*`), Workout blue (`sea-*`), Work green (`leaf-*`), All red (`ember-*`). Done with `accent-*` tokens (`@theme static`) re-pointed by `<html data-tracker>` (`hooks/useTrackerTab.js`); an explicit `[data-tracker='morning']` rule keeps morning parts gold inside other themes.
+  - Header: the animated sun only on Morning; Workout/Work show their icon large in the tab colour with a soft glow; All shows the three icons together. Morning celebrations only play on the Morning tab.
+  - Logic: `lib/trackers.js` has one config per tracker (days, tooltip text, legend, stat cards, ring, headline) so the charts are shared. `lib/workouts.js`: weekly-goal streak (distinct workout days per Mon–Sun week, default goal 3, current week never breaks it), heatmap shaded by length, no-workout days are rest days. `lib/work.js`: daily goal (default 6h), `partial` = some time under goal (tan). `lib/spans.js`: shared helpers for `{ id, start, end }` spans; a span belongs to `dayOf(start)`.
+  - Morning "Track weekends" setting (`morningWeekends`, default off) in the settings popup.
+  - State v2: `workouts: []`, `workSessions: []`, settings `morningWeekends`, `workoutWeeklyGoal`, `workGoalMinutes`, `workWeekends`. Backups round-trip them; v1 backups still import.
+  - All tab is a placeholder: three headline lines and three streak cards in their own colours (click opens the tab).
+  - Only Morning calendar days are editable for now; Workout/Work days show tooltips.
+  - `/?demo` fills all three trackers. Tests: 56 passing.
 
 - [ ] **Stage 2 — Backend + login + migrate morning data.**
   - Create Supabase project; SQL migration file in repo (`supabase/migrations/`) with the schema + RLS policies.
@@ -157,12 +152,20 @@ Leaning: build the ingest endpoint to accept both (Health Auto Export JSON + Str
   - Per-tracker celebrations (blue/green versions of the sun flare), greeting adapts by tab/time of day.
   - Update README (new features, backend setup, Shortcut guide) and this plan.
 
+## Open items
+- Merge `v2-stage-1` into `main` when Zach is happy with it (or keep stacking stages on the branch).
+- At phone width the settings gear in the header is partly cut off on the right (header layout predates v2). Small fix, not done yet.
+- `package-lock.json` had an uncommitted change before v2 started; left out of the Stage 1 commit on purpose.
+- Zach plans to move development from the Codespace to his laptop (clone into Desktop › Everything › Projects, branch `v2-stage-1`).
+
 ## Decisions (2026-11-15)
 - Workout: weekly-goal streak, keep heatmap + calendar, add a per-week bar chart.
 - Work: daily hour goal, input via start/stop timer, weekend toggle.
 - Morning: gets the same weekend toggle.
 - Login: magic link and Google.
 - Multi-user: open sign-ups.
+- Workouts come in via Strong → Health → Shortcut with the free Actions app's Find Workout (2026-11-16).
+- Look: tabs are icons; each tracker has its own colour (gold / blue / green / red for All); the sun is Morning-only (2026-11-16).
 
 ## Ideas for later (not planned)
 - **Streak badges:** gold medallions for 5 / 10 / 20 / 50 days in a row and a 100% hit-rate month, in a row under the stat cards; unearned ones as faint tan outlines.
