@@ -7,7 +7,7 @@ export function ChartTooltip({ tip }) {
       style={{ left: tip.x, top: tip.y - 8 }}
     >
       <p className="font-bold text-white">{tip.content.date}</p>
-      <p className="text-sun-100">{tip.content.detail}</p>
+      <p className="text-accent-100">{tip.content.detail}</p>
     </div>
   )
 }

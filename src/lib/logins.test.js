@@ -33,6 +33,12 @@ describe('recordLoginIfNeeded', () => {
     expect(recordLoginIfNeeded(initial, saturday)).toBe(initial)
   })
 
+  it('records weekends when they are turned on', () => {
+    const initial = updateSettings(createInitialState(), { morningWeekends: true })
+    const state = recordLoginIfNeeded(initial, new Date(2026, 9, 3, 8, 0))
+    expect(state.entries['2026-10-03']).toEqual({ time: '08:00' })
+  })
+
   it('records a new day even if the previous day exists', () => {
     const mon = recordLoginIfNeeded(createInitialState(), monday(6, 42))
     const tue = recordLoginIfNeeded(mon, new Date(2026, 8, 29, 7, 3))
@@ -127,6 +133,29 @@ describe('backups', () => {
     expect(named.settings.name).toBe('Sam')
     const bad = parseBackup(JSON.stringify({ entries: {}, settings: { name: 42 } }))
     expect(bad.settings.name).toBe('')
+  })
+
+  it('keeps workouts, work sessions and the newer settings', () => {
+    const full = {
+      ...state,
+      settings: { ...state.settings, morningWeekends: true, workoutWeeklyGoal: 4, workGoalMinutes: 300 },
+      workouts: [{ id: 'a', start: '2026-09-28T18:00', end: '2026-09-28T18:45' }],
+      workSessions: [{ id: 'b', start: '2026-09-28T09:00', end: '2026-09-28T12:00' }],
+    }
+    expect(parseBackup(JSON.stringify(createBackup(full)))).toEqual(full)
+  })
+
+  it('treats a v1 backup as having no workouts or work', () => {
+    const v1 = parseBackup(JSON.stringify({ version: 1, entries: {}, settings: {} }))
+    expect(v1.workouts).toEqual([])
+    expect(v1.workSessions).toEqual([])
+  })
+
+  it('rejects bad workouts', () => {
+    const bad = (workouts) => () => parseBackup(JSON.stringify({ entries: {}, workouts }))
+    expect(bad({})).toThrow(/workouts/)
+    expect(bad([{ id: 'a', start: '2026-09-28T18:00', end: '2026-09-28T17:00' }])).toThrow(/workouts/)
+    expect(bad([{ start: '2026-09-28T18:00', end: '2026-09-28T19:00' }])).toThrow(/workouts/)
   })
 
   it('rejects files that are not backups', () => {

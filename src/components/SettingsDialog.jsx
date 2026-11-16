@@ -7,7 +7,7 @@ import { Dialog, DialogTitle } from './ui/Dialog'
 
 const MAX_GRACE = 60
 const INPUT =
-  'mt-1.5 block w-full rounded-2xl border border-line bg-white px-4 py-3 font-display text-3xl tabular-nums focus:border-sun-400 focus:outline-none focus:ring-4 focus:ring-sun-200/60'
+  'mt-1.5 block w-full rounded-2xl border border-line bg-white px-4 py-3 font-display text-3xl tabular-nums focus:border-accent-400 focus:outline-none focus:ring-4 focus:ring-accent-200/60'
 
 export function SettingsDialog({ state, onSave, onImport, onClose }) {
   const { settings } = state
@@ -16,6 +16,7 @@ export function SettingsDialog({ state, onSave, onImport, onClose }) {
   const [targetTime, setTargetTime] = useState(settings.targetTime)
   const [grace, setGrace] = useState(String(settings.graceMinutes))
   const [dayStart, setDayStart] = useState(settings.dayStart)
+  const [morningWeekends, setMorningWeekends] = useState(settings.morningWeekends)
 
   const graceMinutes = Number(grace)
   const validGrace = grace !== '' && graceMinutes >= 0 && graceMinutes <= MAX_GRACE
@@ -23,7 +24,7 @@ export function SettingsDialog({ state, onSave, onImport, onClose }) {
   const validDayStart = dayStart && targetTime && toMinutes(dayStart) < toMinutes(targetTime)
   const valid = targetTime && validGrace && validDayStart
   const deadline = valid ? formatMinutes(toMinutes(targetTime) + graceMinutes) : null
-  // Reset only touches the times; the name stays.
+  // Reset only touches the times; the name and weekend choice stay.
   const isDefault =
     targetTime === DEFAULT_SETTINGS.targetTime &&
     graceMinutes === DEFAULT_SETTINGS.graceMinutes &&
@@ -32,7 +33,13 @@ export function SettingsDialog({ state, onSave, onImport, onClose }) {
   const handleSubmit = (event) => {
     event.preventDefault()
     if (!valid) return
-    onSave({ name: name.trim(), targetTime, graceMinutes: Math.round(graceMinutes), dayStart })
+    onSave({
+      name: name.trim(),
+      targetTime,
+      graceMinutes: Math.round(graceMinutes),
+      dayStart,
+      morningWeekends,
+    })
   }
 
   const resetToDefaults = () => {
@@ -69,7 +76,7 @@ export function SettingsDialog({ state, onSave, onImport, onClose }) {
             maxLength={MAX_NAME_LENGTH}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1.5 block w-full rounded-2xl border border-line bg-white px-4 py-3 font-display text-2xl placeholder:text-ink-soft/50 focus:border-sun-400 focus:outline-none focus:ring-4 focus:ring-sun-200/60"
+            className="mt-1.5 block w-full rounded-2xl border border-line bg-white px-4 py-3 font-display text-2xl placeholder:text-ink-soft/50 focus:border-accent-400 focus:outline-none focus:ring-4 focus:ring-accent-200/60"
           />
         </label>
 
@@ -116,8 +123,25 @@ export function SettingsDialog({ state, onSave, onImport, onClose }) {
           )}
         </label>
 
-        <p className="flex items-center gap-2 text-sm font-bold text-sun-700">
-          <span className="size-2.5 rounded-full bg-sun-400" />
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={morningWeekends}
+            onChange={(e) => setMorningWeekends(e.target.checked)}
+            className="mt-0.5 size-5 shrink-0 cursor-pointer accent-accent-500"
+          />
+          <span>
+            <span className="block text-sm font-semibold text-ink">Track weekends</span>
+            <span className="block text-xs text-ink-soft">
+              {morningWeekends
+                ? 'Saturdays and Sundays count like any other morning.'
+                : "Weekends are ignored: they're never missed and don't break your streak."}
+            </span>
+          </span>
+        </label>
+
+        <p className="flex items-center gap-2 text-sm font-bold text-accent-700">
+          <span className="size-2.5 rounded-full bg-accent-400" />
           {deadline
             ? `Counts as a hit if you log on by ${formatTime12(deadline)}`
             : !validGrace

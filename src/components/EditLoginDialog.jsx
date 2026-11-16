@@ -36,15 +36,15 @@ export function EditLoginDialog({ date, entry, settings, onSave, onDelete, onClo
             autoFocus
             value={time}
             onChange={(e) => setTime(e.target.value)}
-            className="mt-1.5 block w-full rounded-2xl border border-line bg-white px-4 py-3 font-display text-3xl tabular-nums focus:border-sun-400 focus:outline-none focus:ring-4 focus:ring-sun-200/60"
+            className="mt-1.5 block w-full rounded-2xl border border-line bg-white px-4 py-3 font-display text-3xl tabular-nums focus:border-accent-400 focus:outline-none focus:ring-4 focus:ring-accent-200/60"
           />
         </label>
 
         {result && (
           <p
-            className={`flex items-center gap-2 text-sm font-bold ${result.hit ? 'text-sun-700' : 'text-ink-soft'}`}
+            className={`flex items-center gap-2 text-sm font-bold ${result.hit ? 'text-accent-700' : 'text-ink-soft'}`}
           >
-            <span className={`size-2.5 rounded-full ${result.hit ? 'bg-sun-400' : 'bg-empty'}`} />
+            <span className={`size-2.5 rounded-full ${result.hit ? 'bg-accent-400' : 'bg-empty'}`} />
             {result.text}
           </p>
         )}
@@ -56,7 +56,7 @@ export function EditLoginDialog({ date, entry, settings, onSave, onDelete, onClo
               aria-label="Delete log on"
               title="Delete log on"
               onClick={onDelete}
-              className="grid size-10 place-items-center rounded-full text-ink-soft transition-colors hover:bg-sun-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sun-500"
+              className="grid size-10 place-items-center rounded-full text-ink-soft transition-colors hover:bg-accent-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
             >
               <TrashIcon className="size-5" />
             </button>

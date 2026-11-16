@@ -1,5 +1,5 @@
-import { eachDayOfInterval, isWeekend, max, parseISO, startOfDay, subDays } from 'date-fns'
-import { deleteLogin, toDateKey } from './logins'
+import { eachDayOfInterval, max, parseISO, startOfDay, subDays } from 'date-fns'
+import { deleteLogin, isMorningDay, toDateKey } from './logins'
 
 export const RANGES = {
   '7d': 7,
@@ -18,6 +18,15 @@ export function formatMinutes(minutes) {
   const h = String(Math.floor(total / 60)).padStart(2, '0')
   const m = String(total % 60).padStart(2, '0')
   return `${h}:${m}`
+}
+
+// Length of time for people: '45m', '2h', '5h 12m'
+export function formatDuration(minutes) {
+  const total = Math.round(minutes)
+  const h = Math.floor(total / 60)
+  const m = total % 60
+  if (!h) return `${m}m`
+  return m ? `${h}h ${m}m` : `${h}h`
 }
 
 export function formatTime12(time) {
@@ -53,8 +62,9 @@ export function trackingStart(state) {
   return keys.length ? parseISO(keys[0]) : null
 }
 
-// Every weekday from `from` to `today` (clamped to the tracking start), each
-// classified as 'hit' | 'late' | 'missed' | 'pending' (today, not logged yet).
+// Every tracked morning (weekdays, plus weekends when turned on) from `from`
+// to `today` (clamped to the tracking start), each classified as
+// 'hit' | 'late' | 'missed' | 'pending' (today, not logged yet).
 export function getDays(state, from, today = new Date()) {
   const start = trackingStart(state)
   if (!start) return []
@@ -66,7 +76,7 @@ export function getDays(state, from, today = new Date()) {
   const todayKey = toDateKey(today)
 
   return eachDayOfInterval({ start: first, end: last })
-    .filter((day) => !isWeekend(day))
+    .filter((day) => isMorningDay(day, state.settings))
     .map((day) => {
       const date = toDateKey(day)
       const entry = state.entries[date]
@@ -77,14 +87,16 @@ export function getDays(state, from, today = new Date()) {
     })
 }
 
-export function rangeStart(range, state, today = new Date()) {
+// First day of a range; 'all' starts at the tracker's first day (`start`).
+export function rangeStart(range, start, today = new Date()) {
   const days = RANGES[range]
-  if (days == null) return trackingStart(state) ?? startOfDay(today)
+  if (days == null) return start ?? startOfDay(today)
   return subDays(startOfDay(today), days - 1)
 }
 
-// Pending (today, not yet logged) never breaks a streak.
-function streaks(days) {
+// Current and best run of 'hit' periods (days or weeks). Pending (today or
+// this week, not decided yet) never breaks a streak.
+export function streaks(days) {
   let best = 0
   let run = 0
   for (const { status } of days) {
@@ -99,7 +111,7 @@ export function getStats(state, range = '30d', today = new Date()) {
   const allDays = getDays(state, trackingStart(state) ?? today, today)
   const { current, best } = streaks(allDays)
 
-  const days = getDays(state, rangeStart(range, state, today), today)
+  const days = getDays(state, rangeStart(range, trackingStart(state), today), today)
   const counted = days.filter((d) => d.status !== 'pending')
   const count = (status) => counted.filter((d) => d.status === status).length
   const hits = count('hit')

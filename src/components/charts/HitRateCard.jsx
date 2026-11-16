@@ -6,13 +6,16 @@ const STROKE = 14
 const RADIUS = (SIZE - STROKE) / 2
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
 
-export function HitRateCard({ stats, rangeLabel }) {
-  const percent = stats.hitRate == null ? null : Math.round(stats.hitRate * 100)
+const COUNT_FILLS = { hit: HIT_FILLS[3], light: HIT_FILLS[1], miss: MISS_FILL }
+
+// `rate` comes from a tracker's summary: { label, value (0–1 or null), caption, counts }
+export function HitRateCard({ rate, rangeLabel }) {
+  const percent = rate.value == null ? null : Math.round(rate.value * 100)
 
   return (
     <Card className="flex flex-col">
       <div className="flex items-baseline justify-between gap-4">
-        <CardLabel>Hit rate</CardLabel>
+        <CardLabel>{rate.label}</CardLabel>
         <p className="text-sm text-ink-soft">{rangeLabel}</p>
       </div>
 
@@ -39,7 +42,7 @@ export function HitRateCard({ stats, rangeLabel }) {
                 cy={SIZE / 2}
                 r={RADIUS}
                 fill="none"
-                stroke="var(--color-sun-400)"
+                stroke="var(--color-accent-400)"
                 strokeWidth={STROKE}
                 strokeLinecap="round"
                 strokeDasharray={CIRCUMFERENCE}
@@ -54,7 +57,7 @@ export function HitRateCard({ stats, rangeLabel }) {
                 {percent == null ? '–' : `${percent}%`}
               </p>
               <p className="text-xs font-semibold text-ink-soft">
-                {stats.hits} of {stats.trackedDays} mornings
+                {rate.caption}
               </p>
             </div>
           </div>
@@ -62,9 +65,9 @@ export function HitRateCard({ stats, rangeLabel }) {
       </div>
 
       <div className="flex gap-4 border-t border-line pt-4 text-sm text-ink-soft">
-        <Count fill={HIT_FILLS[3]} value={stats.hits} label="hit" />
-        <Count fill={MISS_FILL} value={stats.late} label="late" />
-        <Count fill={MISS_FILL} value={stats.missed} label="missed" />
+        {rate.counts.map(({ kind, value, label }) => (
+          <Count key={label} fill={COUNT_FILLS[kind]} value={value} label={label} />
+        ))}
       </div>
     </Card>
   )

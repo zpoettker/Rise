@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-@theme {
+@theme static {
   --font-sans: 'Nunito', ui-sans-serif, system-ui, sans-serif;
   --font-display: 'Fraunces', ui-serif, Georgia, serif;
 
@@ -15,6 +15,55 @@
   --color-sun-700: #b85a14;
   --color-sun-800: #8a4415;
   --color-sun-900: #5c3013;
+
+  /* workout: clear morning sky blue */
+  --color-sea-50: #eef6ff;
+  --color-sea-100: #d9ebff;
+  --color-sea-200: #b3d6fb;
+  --color-sea-300: #84bbf3;
+  --color-sea-400: #5a9ee8;
+  --color-sea-500: #3d82d6;
+  --color-sea-600: #2f68b8;
+  --color-sea-700: #285295;
+  --color-sea-800: #233f70;
+  --color-sea-900: #1c2e4f;
+
+  /* work: fresh leaf green */
+  --color-leaf-50: #effaf0;
+  --color-leaf-100: #d9f2dc;
+  --color-leaf-200: #b2e3b9;
+  --color-leaf-300: #84cd91;
+  --color-leaf-400: #5bb56d;
+  --color-leaf-500: #3f9a54;
+  --color-leaf-600: #317d44;
+  --color-leaf-700: #2a6338;
+  --color-leaf-800: #244e2f;
+  --color-leaf-900: #1c3a24;
+
+  /* all trackers together: warm ember red */
+  --color-ember-50: #fff2f0;
+  --color-ember-100: #ffe0dc;
+  --color-ember-200: #ffbfb7;
+  --color-ember-300: #fa958c;
+  --color-ember-400: #ef6a61;
+  --color-ember-500: #dc4a42;
+  --color-ember-600: #bc3632;
+  --color-ember-700: #972b28;
+  --color-ember-800: #722422;
+  --color-ember-900: #501c1a;
+
+  /* The current tracker's colour. Components use accent-* instead of a fixed
+     scale; [data-tracker] below swaps it (morning keeps the sun scale). */
+  --color-accent-50: var(--color-sun-50);
+  --color-accent-100: var(--color-sun-100);
+  --color-accent-200: var(--color-sun-200);
+  --color-accent-300: var(--color-sun-300);
+  --color-accent-400: var(--color-sun-400);
+  --color-accent-500: var(--color-sun-500);
+  --color-accent-600: var(--color-sun-600);
+  --color-accent-700: var(--color-sun-700);
+  --color-accent-800: var(--color-sun-800);
+  --color-accent-900: var(--color-sun-900);
 
   --color-cream: #fffaf2;
   --color-ink: #4a3426;
@@ -125,10 +174,77 @@
   }
 }
 
+/* Each tracker re-points the accent scale (and the page glow) at its own colour.
+   Set on <html> for the selected tab, or on any element to theme just that part. */
+:root {
+  --glow-strong: #ffe6b8;
+  --glow-soft: #fff3dc;
+}
+
+/* Morning is the default, but needs its own rule so morning bits stay gold
+   inside another tracker's page (e.g. on the All tab). */
+[data-tracker='morning'] {
+  --color-accent-50: var(--color-sun-50);
+  --color-accent-100: var(--color-sun-100);
+  --color-accent-200: var(--color-sun-200);
+  --color-accent-300: var(--color-sun-300);
+  --color-accent-400: var(--color-sun-400);
+  --color-accent-500: var(--color-sun-500);
+  --color-accent-600: var(--color-sun-600);
+  --color-accent-700: var(--color-sun-700);
+  --color-accent-800: var(--color-sun-800);
+  --color-accent-900: var(--color-sun-900);
+}
+
+[data-tracker='workout'] {
+  --color-accent-50: var(--color-sea-50);
+  --color-accent-100: var(--color-sea-100);
+  --color-accent-200: var(--color-sea-200);
+  --color-accent-300: var(--color-sea-300);
+  --color-accent-400: var(--color-sea-400);
+  --color-accent-500: var(--color-sea-500);
+  --color-accent-600: var(--color-sea-600);
+  --color-accent-700: var(--color-sea-700);
+  --color-accent-800: var(--color-sea-800);
+  --color-accent-900: var(--color-sea-900);
+  --glow-strong: #dcebfb;
+  --glow-soft: #eef5fb;
+}
+
+[data-tracker='all'] {
+  --color-accent-50: var(--color-ember-50);
+  --color-accent-100: var(--color-ember-100);
+  --color-accent-200: var(--color-ember-200);
+  --color-accent-300: var(--color-ember-300);
+  --color-accent-400: var(--color-ember-400);
+  --color-accent-500: var(--color-ember-500);
+  --color-accent-600: var(--color-ember-600);
+  --color-accent-700: var(--color-ember-700);
+  --color-accent-800: var(--color-ember-800);
+  --color-accent-900: var(--color-ember-900);
+  --glow-strong: #fde0da;
+  --glow-soft: #fdf0ea;
+}
+
+[data-tracker='work'] {
+  --color-accent-50: var(--color-leaf-50);
+  --color-accent-100: var(--color-leaf-100);
+  --color-accent-200: var(--color-leaf-200);
+  --color-accent-300: var(--color-leaf-300);
+  --color-accent-400: var(--color-leaf-400);
+  --color-accent-500: var(--color-leaf-500);
+  --color-accent-600: var(--color-leaf-600);
+  --color-accent-700: var(--color-leaf-700);
+  --color-accent-800: var(--color-leaf-800);
+  --color-accent-900: var(--color-leaf-900);
+  --glow-strong: #def1dc;
+  --glow-soft: #eff7ea;
+}
+
 @layer base {
   body {
     @apply bg-cream font-sans text-ink antialiased;
-    background-image: radial-gradient(ellipse 120% 60% at 50% 0%, #ffe6b8 0%, #fff3dc 35%, transparent 75%);
+    background-image: radial-gradient(ellipse 120% 60% at 50% 0%, var(--glow-strong) 0%, var(--glow-soft) 35%, transparent 75%);
     background-attachment: fixed;
   }
 

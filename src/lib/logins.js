@@ -1,20 +1,33 @@
 import { format, isWeekend, subMinutes } from 'date-fns'
 
 export const MAX_NAME_LENGTH = 30
+export const MAX_WEEKLY_GOAL = 7
+export const MAX_WORK_GOAL_MINUTES = 16 * 60
 
 export const DEFAULT_SETTINGS = {
   name: '',
   targetTime: '08:30',
   graceMinutes: 15,
   dayStart: '04:00',
+  // track Sat/Sun log-ons too (off: weekends are ignored, never missed)
+  morningWeekends: false,
+  // workouts per Mon–Sun week for a week to count toward the streak
+  workoutWeeklyGoal: 3,
+  // minutes of work for a day to count as a hit
+  workGoalMinutes: 6 * 60,
+  workWeekends: false,
 }
 
-// entries are keyed by local date ('yyyy-MM-dd') so each day holds at most one login
+// `entries` are morning log-ons keyed by local date ('yyyy-MM-dd'), so each day
+// holds at most one. Workouts and work sessions are lists of
+// { id, start, end } in local time ('yyyy-MM-ddTHH:mm').
 export function createInitialState() {
   return {
-    version: 1,
+    version: 2,
     settings: { ...DEFAULT_SETTINGS },
     entries: {},
+    workouts: [],
+    workSessions: [],
   }
 }
 
@@ -32,11 +45,14 @@ export function dayOf(now, settings) {
   return subMinutes(now, minutesOf(settings.dayStart))
 }
 
+// Whether a date is a tracked morning (weekends only when turned on).
+export const isMorningDay = (date, settings) => settings.morningWeekends || !isWeekend(date)
+
 // Returns a new state with today's login recorded, or the same state if
-// today is a weekend, already has a login, or it's before the day start
-// (a late-night visit isn't a morning log-on).
+// today is an untracked weekend, already has a login, or it's before the day
+// start (a late-night visit isn't a morning log-on).
 export function recordLoginIfNeeded(state, now = new Date()) {
-  if (isWeekend(now)) return state
+  if (!isMorningDay(now, state.settings)) return state
   if (now.getHours() * 60 + now.getMinutes() < minutesOf(state.settings.dayStart)) return state
 
   const key = toDateKey(now)
@@ -75,6 +91,25 @@ export function createBackup(state, now = new Date()) {
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
+const DATE_TIME = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/
+
+const isWholeNumber = (value, min, max) => Number.isInteger(value) && value >= min && value <= max
+
+// Workouts / work sessions from a backup: each needs an id and a start before its end.
+function parseSpans(list, what) {
+  if (list == null) return []
+  if (!Array.isArray(list)) throw new Error(`The backup's ${what} aren't a list.`)
+  return list.map((item) => {
+    const valid =
+      item &&
+      (typeof item.id === 'string' || typeof item.id === 'number') &&
+      DATE_TIME.test(item.start) &&
+      DATE_TIME.test(item.end) &&
+      item.start < item.end
+    if (!valid) throw new Error(`The backup has an invalid entry in its ${what}.`)
+    return { id: String(item.id), start: item.start, end: item.end }
+  })
+}
 
 // Turns a backup file's text into a clean state, or throws an Error whose
 // message is safe to show. Nothing is saved here.
@@ -101,12 +136,25 @@ export function parseBackup(text) {
   const settings = { ...DEFAULT_SETTINGS }
   if (typeof saved.name === 'string') settings.name = saved.name.trim().slice(0, MAX_NAME_LENGTH)
   if (TIME.test(saved.targetTime)) settings.targetTime = saved.targetTime
-  if (Number.isInteger(saved.graceMinutes) && saved.graceMinutes >= 0 && saved.graceMinutes <= 60) {
-    settings.graceMinutes = saved.graceMinutes
-  }
+  if (isWholeNumber(saved.graceMinutes, 0, 60)) settings.graceMinutes = saved.graceMinutes
   if (TIME.test(saved.dayStart) && minutesOf(saved.dayStart) < minutesOf(settings.targetTime)) {
     settings.dayStart = saved.dayStart
   }
 
-  return { version: 1, settings, entries }
+  if (typeof saved.morningWeekends === 'boolean') settings.morningWeekends = saved.morningWeekends
+  if (typeof saved.workWeekends === 'boolean') settings.workWeekends = saved.workWeekends
+  if (isWholeNumber(saved.workoutWeeklyGoal, 1, MAX_WEEKLY_GOAL)) {
+    settings.workoutWeeklyGoal = saved.workoutWeeklyGoal
+  }
+  if (isWholeNumber(saved.workGoalMinutes, 1, MAX_WORK_GOAL_MINUTES)) {
+    settings.workGoalMinutes = saved.workGoalMinutes
+  }
+
+  return {
+    version: 2,
+    settings,
+    entries,
+    workouts: parseSpans(data.workouts, 'workouts'),
+    workSessions: parseSpans(data.workSessions, 'work sessions'),
+  }
 }

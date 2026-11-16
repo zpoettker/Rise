@@ -45,6 +45,12 @@ describe('getDays', () => {
     ])
   })
 
+  it('includes weekends when they are turned on', () => {
+    const state = stateWith({ 25: '08:30', 26: '08:10' })
+    state.settings.morningWeekends = true
+    expect(getDays(state, day(1), day(27)).map((d) => d.status)).toEqual(['hit', 'hit', 'pending'])
+  })
+
   it('marks today as pending when not logged yet', () => {
     const state = stateWith({ 28: '08:30' })
     expect(getDays(state, day(28), day(29)).at(-1).status).toBe('pending')

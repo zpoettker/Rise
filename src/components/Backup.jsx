@@ -70,7 +70,7 @@ export function BackupSection({ state, onPick }) {
       {message && (
         <p
           role={message.error ? 'alert' : 'status'}
-          className={`text-xs font-bold ${message.error ? 'text-ink' : 'text-sun-700'}`}
+          className={`text-xs font-bold ${message.error ? 'text-ink' : 'text-accent-700'}`}
         >
           {message.text}
         </p>

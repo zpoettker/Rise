@@ -5,36 +5,36 @@ import {
   format,
   getDay,
   isSameMonth,
-  isWeekend,
   startOfDay,
   startOfMonth,
 } from 'date-fns'
 import { useState } from 'react'
 import { toDateKey } from '../../lib/logins'
-import { trackingStart } from '../../lib/stats'
+import { daysByDate } from '../../lib/trackers'
 import { Card, CardLabel } from '../ui/Card'
 import { useHoverTooltip } from '../../hooks/useHoverTooltip'
 import { ChartTooltip } from './ChartTooltip'
-import { dayFill, daysByDate, describeDay } from './days'
+import { dayFill } from './days'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-function dayClasses(day, settings) {
-  if (day?.status === 'pending') return 'text-ink ring-2 ring-sun-500 ring-inset'
-  const fill = dayFill(day, settings)
+function dayClasses(day) {
+  if (day?.status === 'pending') return 'text-ink ring-2 ring-accent-500 ring-inset'
+  const fill = dayFill(day)
   return fill ? `${fill} text-ink` : 'text-ink-soft'
 }
 
-export function MonthCalendar({ state, onSelectDay, today = new Date() }) {
+// `onSelectDay` makes tracked days clickable (to edit them); without it the
+// days only show their tooltip.
+export function MonthCalendar({ tracker, state, onSelectDay, today = new Date() }) {
   const [month, setMonth] = useState(() => startOfMonth(today))
   const { ref, tip, show, hide } = useHoverTooltip()
 
   const end = startOfDay(today)
-  const start = trackingStart(state)
-  const days = daysByDate(state, month, today)
+  const start = tracker.start(state)
+  const days = daysByDate(tracker, state, month, today)
   const monthDays = eachDayOfInterval({ start: month, end: endOfMonth(month) })
   const tracked = Object.values(days).filter((d) => d.date.startsWith(format(month, 'yyyy-MM')))
-  const count = (status) => tracked.filter((d) => d.status === status).length
 
   const canGoBack = start && month > startOfMonth(start)
   const canGoForward = !isSameMonth(month, today)
@@ -76,17 +76,28 @@ export function MonthCalendar({ state, onSelectDay, today = new Date() }) {
             const key = toDateKey(date)
             const day = days[key]
             const isToday = key === toDateKey(end)
-            const editable = !isWeekend(date) && date <= end
+            const trackedDay = tracker.isTracked(date, state.settings) && date <= end
             const classes = `grid size-9 place-items-center rounded-full text-sm font-bold tabular-nums ${
-              editable ? dayClasses(day, state.settings) : 'text-ink-soft/30'
-            } ${isToday && day?.status !== 'pending' ? 'ring-2 ring-sun-600 ring-offset-2 ring-offset-white' : ''}`
+              trackedDay ? dayClasses(day) : 'text-ink-soft/30'
+            } ${isToday && day?.status !== 'pending' ? 'ring-2 ring-accent-600 ring-offset-2 ring-offset-white' : ''}`
 
             let cell = <span className={classes}>{date.getDate()}</span>
-            if (editable) {
-              const described = describeDay(
-                day ?? { date: key, status: 'empty', time: null },
-                state.settings,
+            const described =
+              trackedDay &&
+              tracker.describe(day ?? { date: key, status: 'empty', minutes: 0 }, state.settings)
+            if (trackedDay && !onSelectDay) {
+              cell = (
+                <span
+                  role="img"
+                  className={classes}
+                  aria-label={`${described.date}: ${described.detail}`}
+                  onMouseEnter={(e) => show(e, described)}
+                  onMouseLeave={hide}
+                >
+                  {date.getDate()}
+                </span>
               )
+            } else if (trackedDay) {
               cell = (
                 <button
                   type="button"
@@ -97,7 +108,7 @@ export function MonthCalendar({ state, onSelectDay, today = new Date() }) {
                   }}
                   onMouseEnter={(e) => show(e, described)}
                   onMouseLeave={hide}
-                  className={`${classes} cursor-pointer transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sun-500`}
+                  className={`${classes} cursor-pointer transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500`}
                 >
                   {date.getDate()}
                 </button>
@@ -119,15 +130,11 @@ export function MonthCalendar({ state, onSelectDay, today = new Date() }) {
       </div>
 
       <div className="flex gap-4 border-t border-line pt-4 text-sm text-ink-soft">
-        <span>
-          <span className="font-bold text-ink">{count('hit')}</span> hit
-        </span>
-        <span>
-          <span className="font-bold text-ink">{count('late')}</span> late
-        </span>
-        <span>
-          <span className="font-bold text-ink">{count('missed')}</span> missed
-        </span>
+        {tracker.monthCounts(tracked).map(({ value, label }) => (
+          <span key={label}>
+            <span className="font-bold text-ink">{value}</span> {label}
+          </span>
+        ))}
       </div>
     </Card>
   )
@@ -138,7 +145,7 @@ function NavButton({ label, children, ...props }) {
     <button
       type="button"
       aria-label={label}
-      className="grid size-9 place-items-center rounded-full text-xl text-ink-soft transition-colors hover:bg-sun-100 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
+      className="grid size-9 place-items-center rounded-full text-xl text-ink-soft transition-colors hover:bg-accent-100 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
       {...props}
     >
       {children}

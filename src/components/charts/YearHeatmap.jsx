@@ -5,17 +5,19 @@ import { Card, CardLabel } from '../ui/Card'
 import { useHoverTooltip } from '../../hooks/useHoverTooltip'
 import { ChartTooltip } from './ChartTooltip'
 import { DayLegend } from './DayLegend'
-import { dayFill, daysByDate, describeDay, HEATMAP_MISS_FILL, MISS_FILL } from './days'
+import { daysByDate } from '../../lib/trackers'
+import { dayFill, HEATMAP_MISS_FILL, MISS_FILL } from './days'
 
 const CELL = 11
 const GAP = 3
-const WEEKDAY_LABELS = ['Mon', '', 'Wed', '', 'Fri']
+const WEEKDAY_LABELS = ['Mon', '', 'Wed', '', 'Fri', '', 'Sun']
 
-// Weeks (Mon-start) covering the past year; each week holds its 5 weekdays.
-function buildWeeks(today) {
+// Weeks (Mon-start) covering the past year; each week holds its 5 weekdays,
+// or all 7 days when the tracker counts weekends.
+function buildWeeks(today, length) {
   const start = startOfWeek(subWeeks(today, 52), { weekStartsOn: 1 })
   return eachWeekOfInterval({ start, end: today }, { weekStartsOn: 1 }).map((weekStart) =>
-    Array.from({ length: 5 }, (_, i) => addDays(weekStart, i)),
+    Array.from({ length }, (_, i) => addDays(weekStart, i)),
   )
 }
 
@@ -25,14 +27,15 @@ function monthLabel(weeks, i) {
   return weeks[i - 1][0].getMonth() !== month ? format(weeks[i][0], 'MMM') : ''
 }
 
-export function YearHeatmap({ state, today = new Date() }) {
+export function YearHeatmap({ tracker, state, today = new Date() }) {
   const { ref, tip, show, hide } = useHoverTooltip()
   const scrollRef = useRef(null)
 
   const end = startOfDay(today)
-  const weeks = buildWeeks(end)
-  const days = daysByDate(state, weeks[0][0], today)
-  const hits = Object.values(days).filter((d) => d.status === 'hit').length
+  const rows = tracker.showsWeekends(state.settings) ? 7 : 5
+  const weeks = buildWeeks(end, rows)
+  const days = daysByDate(tracker, state, weeks[0][0], today)
+  const summary = tracker.yearSummary(Object.values(days))
 
   // start scrolled to the most recent weeks on narrow screens
   useEffect(() => {
@@ -45,7 +48,7 @@ export function YearHeatmap({ state, today = new Date() }) {
       <div className="flex items-baseline justify-between gap-4">
         <CardLabel>Past year</CardLabel>
         <p className="text-sm text-ink-soft">
-          <span className="font-bold text-ink">{hits}</span> mornings on target
+          <span className="font-bold text-ink">{summary.value}</span> {summary.label}
         </p>
       </div>
 
@@ -55,7 +58,7 @@ export function YearHeatmap({ state, today = new Date() }) {
             className="inline-grid text-[10px] font-semibold text-ink-soft"
             style={{
               gridTemplateColumns: `28px repeat(${weeks.length}, ${CELL}px)`,
-              gridTemplateRows: `16px repeat(5, ${CELL}px)`,
+              gridTemplateRows: `16px repeat(${rows}, ${CELL}px)`,
               gap: GAP,
             }}
           >
@@ -69,7 +72,7 @@ export function YearHeatmap({ state, today = new Date() }) {
               </span>
             ))}
 
-            {WEEKDAY_LABELS.map((label, row) => (
+            {WEEKDAY_LABELS.slice(0, rows).map((label, row) => (
               <span
                 key={`d${row}`}
                 className="leading-[11px]"
@@ -84,8 +87,8 @@ export function YearHeatmap({ state, today = new Date() }) {
                 if (date > end) return null
                 const key = toDateKey(date)
                 const day = days[key] ?? { date: key, status: 'empty', time: null }
-                const { date: label, detail } = describeDay(day, state.settings)
-                const fill = dayFill(day, state.settings)
+                const { date: label, detail } = tracker.describe(day, state.settings)
+                const fill = dayFill(day)
                 return (
                   <div
                     key={key}
@@ -94,7 +97,7 @@ export function YearHeatmap({ state, today = new Date() }) {
                     onMouseEnter={(e) => show(e, { date: label, detail })}
                     onMouseLeave={hide}
                     className={`rounded-[3px] ${fill === MISS_FILL ? HEATMAP_MISS_FILL : (fill ?? 'bg-empty')} ${
-                      day.status === 'pending' ? 'ring-1 ring-sun-500 ring-inset' : ''
+                      day.status === 'pending' ? 'ring-1 ring-accent-500 ring-inset' : ''
                     }`}
                     style={{ gridColumn: col + 2, gridRow: row + 2 }}
                   />
@@ -106,7 +109,7 @@ export function YearHeatmap({ state, today = new Date() }) {
         <ChartTooltip tip={tip} />
       </div>
 
-      <DayLegend />
+      <DayLegend legend={tracker.legend} />
     </Card>
   )
 }
