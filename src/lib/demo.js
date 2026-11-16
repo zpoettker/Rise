@@ -1,4 +1,13 @@
-import { addMinutes, eachDayOfInterval, format, isWeekend, setHours, setMinutes, subDays } from 'date-fns'
+import {
+  addMinutes,
+  eachDayOfInterval,
+  format,
+  isWeekend,
+  setHours,
+  setMinutes,
+  startOfWeek,
+  subDays,
+} from 'date-fns'
 import { createInitialState, toDateKey } from './logins'
 import { formatMinutes, toMinutes } from './stats'
 
@@ -7,7 +16,8 @@ const at = (day, minutes) => setMinutes(setHours(day, 0), minutes)
 
 // Fake history for previewing the UI in dev (open the app with ?demo). Never saved.
 // `hitToday` adds an early log-on today (used by ?demo&celebrate).
-export function createDemoState(today = new Date(), { hitToday = false } = {}) {
+// `weekWorkouts` sets how many days this week had a workout (?demo&week=2).
+export function createDemoState(today = new Date(), { hitToday = false, weekWorkouts = null } = {}) {
   const state = createInitialState()
   const target = toMinutes(state.settings.targetTime)
 
@@ -30,6 +40,17 @@ export function createDemoState(today = new Date(), { hitToday = false } = {}) {
     if (random() > 0.5) continue
     const start = at(day, between(6 * 60, 19 * 60))
     state.workouts.push({ id: `w${id++}`, start: stamp(start), end: stamp(addMinutes(start, between(25, 75))) })
+  }
+
+  // replace this week's workouts with one on each of the first N days (up to today)
+  if (weekWorkouts != null) {
+    const weekStart = toDateKey(startOfWeek(today, { weekStartsOn: 1 }))
+    state.workouts = state.workouts.filter((w) => w.start.slice(0, 10) < weekStart)
+    const week = eachDayOfInterval({ start: startOfWeek(today, { weekStartsOn: 1 }), end: today })
+    for (const day of week.slice(0, weekWorkouts)) {
+      const start = at(day, between(6 * 60, 19 * 60))
+      state.workouts.push({ id: `w${id++}`, start: stamp(start), end: stamp(addMinutes(start, between(25, 75))) })
+    }
   }
 
   // work: weekdays, two or three sessions adding up to roughly 3–9 hours

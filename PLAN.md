@@ -38,7 +38,7 @@ Personal morning log-on tracker. Chrome opens the Vercel site on startup; the fi
   - [x] High-score moment (`isNewBestToday`): when today's hit beats the old best streak (2+ days), a gold shimmer sweeps the streak card, the number pops, and a "New best!" pill stays for the day.
 
 ## Status (2026-11-16)
-v1 (phases 0–6) is complete. **v2 (multi-tracker + backend) is in progress: Stages 0–1 done (branch `v2-stage-1`), Stage 2 next.**
+v1 (phases 0–6) is complete. **v2 (multi-tracker + backend) is in progress: Stages 0–1 done (branch `v2-stage-1`), Stage 2 (UI design pass) next.** Stages were reordered on 2026-11-16: UI → work timer → backend → settings → Strong.
 
 ---
 
@@ -63,7 +63,7 @@ Grow Rise from a single morning tracker into three trackers that share one dashb
 | Late / partial | after target | n/a | some time, under goal |
 | Missed | no log-on | rest day (not a failure on its own) | no time logged |
 | Streak unit | days | **weeks**: a week (Mon–Sun) is hit when workouts ≥ weekly goal (setting, default 3) | days |
-| Heatmap / calendar shade | how early | workout length | hours worked |
+| Heatmap / calendar shade | how early | week vs. weekly goal (under / on / over) | hours worked |
 | Stat cards | streak · best · avg log-on | week streak · best · this week (2/3) | streak · best · avg hours/day |
 | Extra widget | – | bar chart of workouts per week vs. goal line (in place of or next to the hit rate card) | – |
 
@@ -91,7 +91,7 @@ Grow Rise from a single morning tracker into three trackers that share one dashb
 Strong has no public API or webhook. **Chosen route: Strong → Apple Health → iOS Shortcut → `/api/ingest/workout`.**
 - Strong writes each finished workout to Apple Health (Strong → Settings → Apple Health). Health only has the summary: start, end, duration, calories. No sets/reps.
 - Apple's built-in Shortcuts Health action (**Find Health Samples**) **cannot read workouts** (no Workouts type), so the Shortcut uses the **Find Workout** action from the free **Actions** app by Sindre Sorhus (https://sindresorhus.com/actions, iOS 26+, no ads/IAP). Confirmed on Zach's iPhone: it returns Strong workouts with start and end date/time. It shows no usable source/app field, so the Shortcut sends all workouts in Health.
-- Trigger: Personal Automation **App → Strong → Is Closed → Run Immediately**, "Notify When Run" off. "Is Closed" fires whenever you leave Strong (home, app switch, lock), not only on force-quit; confirmed it runs. Optional nightly backup automation. Send-once design is in Stage 4.
+- Trigger: Personal Automation **App → Strong → Is Closed → Run Immediately**, "Notify When Run" off. "Is Closed" fires whenever you leave Strong (home, app switch, lock), not only on force-quit; confirmed it runs. Optional nightly backup automation. Send-once design is in Stage 6.
 - Each user sets this up themselves (needs Strong, the Actions app, our shared Shortcut and their Rise API token), so it works for a multi-user app.
 - **Past workouts:** a one-time **Strong CSV export** import (has exercises/sets too). Sample CSV still to be provided by Zach (Strong → Settings → Export Strong Data).
 
@@ -105,7 +105,7 @@ Rejected / fallback options:
 
 ## Stages
 
-- [x] **Stage 0 — Phone spike (done 2026-11-16).** Proved the iPhone side works before writing code: Strong → Health works; the Actions app's Find Workout reads workouts (start + end); the "Strong → Is Closed" automation runs. Details in "Getting Strong workouts in" above. Strong CSV sample deferred to Stage 4.
+- [x] **Stage 0 — Phone spike (done 2026-11-16).** Proved the iPhone side works before writing code: Strong → Health works; the Actions app's Find Workout reads workouts (start + end); the "Strong → Is Closed" automation runs. Details in "Getting Strong workouts in" above. Strong CSV sample deferred to Stage 6.
 
 - [x] **Stage 1 — Tracker tabs + theming (frontend only, still localStorage).** Done 2026-11-16, committed and pushed to branch `v2-stage-1` (not merged to `main`, so the live site is unchanged).
   - Tabs: grey icons left of the range selector (sun = Morning, Strong-style dumbbell = Workout, laptop = Work; `components/ui/TrackerIcons.jsx`) and "All" as text. Selected tab remembered per browser (`rise:tab`).
@@ -118,45 +118,78 @@ Rejected / fallback options:
   - Only Morning calendar days are editable for now; Workout/Work days show tooltips.
   - `/?demo` fills all three trackers. Tests: 56 passing.
 
-- [ ] **Stage 2 — Backend + login + migrate morning data.**
-  - Create Supabase project; SQL migration file in repo (`supabase/migrations/`) with the schema + RLS policies.
-  - `src/lib/api.js` data layer replacing `storage.js` (load profile + logs, upsert, delete). Keep the pure functions in `logins.js`/`stats.js` unchanged; only the persistence moves.
-  - Login screen with magic link and Google, sign-out in settings. Open sign-ups; first-run setup for new accounts (name, target, goals, restore-from-backup shortcut). Env vars `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in Vercel.
-  - Morning recording: same `recordLoginIfNeeded` logic on load/visibility, written to `wake_logs`. If offline or the write fails, queue it in localStorage and retry so a morning is never lost.
-  - One-time migration: on first login, if `rise:data` exists in localStorage, offer "Upload your existing data"; the JSON backup import also writes to the backend. Export keeps working (now includes all trackers).
+Stages 2–3 stay frontend-only on `localStorage` (with `/?demo` for previewing). The backend arrives in Stage 4 and takes over persistence for all three trackers at once.
+
+- [ ] **Stage 2 — UI design pass (frontend only, localStorage).** Get every tab looking the way Zach wants before wiring in more functionality. The list grows as Zach gives direction; `/?demo` is the main preview.
+  - **Progress (2026-11-16):** Morning is done as is. Workout tab is done for now (details below). **Work tab is next.**
+  - **Zach's design changes, still to do:**
+    - [ ] Make the Workout and Work icons bigger. This most likely means the big header icon next to the heading (dumbbell / laptop), which looks small next to Morning's sun. Check with Zach whether the tab-bar icons should grow too.
+    - [ ] Animate the header icon when switching to a tab (e.g. the dumbbell lifts/bounces, the laptop opens or its screen lights up, the sun rises). Plays once per switch, calm like the existing celebrations, off with reduced motion.
+  - **"All" combined view** (replaces the Stage 1 placeholder):
+    - Hero: today at a glance, e.g. woke at 7:58 ☀️ · lifted 52 min 💪 · worked 3h 40m 🌿.
+    - Stat cards: each tracker's current streak in its own colour, plus a "perfect days" streak (every tracked tracker hit that day).
+    - Year heatmap: each day cell split into 3 thin stripes (gold/blue/green) or one combined score shade. Month calendar days get three coloured dots. Hit rate card becomes three concentric rings.
+    - Clicking a tracker's part opens that tab.
+  - **Workout tab:**
+    - [x] Stat cards: current streak · best streak · total workouts (all time).
+    - [x] "Workouts per week" bar chart (`WeeklyBarsCard.jsx`) replaces the hit-rate ring next to the calendar. Workout days per Mon–Sun week for the selected range. Weeks that reach the goal are solid blue and the rest are light blue. The goal line follows `workoutWeeklyGoal`. Hover a bar for its week's details. Footer: on goal · short · workouts. The hovered bar turns a shade darker.
+    - [x] Heatmap and calendar shade each workout day by **its week against the goal** instead of by length (workout time isn't reliable): light = under goal, medium = on goal, dark = over goal (`weekLevel` in `lib/workouts.js`; levels 1 / 3 / 5, where 5 is an extra `accent-600` step). Legend reads Under goal · On goal · Over goal. Tooltips add "week 2/3". The bar chart is unchanged. This week's days start light and darken as the week fills up.
+    - [x] Header changes with this week's progress instead of "Good Morning" (tracker `heading`): no workouts yet → "Let's Lift", some but under the goal → "Keep It Up", goal or more → "Goal Crushed!". (Tried "You have logged X workouts" first; too long.)
+    - [x] Calendar starts on Monday (tracker `weekStartsOn: 1`; Morning and Work keep Sunday). Footer: workout days · total time (a "% of weeks on goal" footer was tried and reverted).
+    - [x] "This week" progress card (`WeekProgressCard.jsx`), full width under the stat cards: date range, Mon–Sun dots (worked / rest / coming up, today ringed), "4 / 3 workout days", status ("2 more to go · 4 days left" or "Goal crushed · 1 extra") with the week's total time, and a progress bar with one slot per goal day, growing to one per workout day when over (4/3 → 4 slots, all full), darker once met. Under the goal the fill is plain blue (`.bar-in`, grows in on load). **Once the goal is met** it becomes the animated "energy" fill (`.energy` in `index.css`, uses accent tokens so other tabs can reuse it): big right-pointing chevrons (20px bands) in three shades (`accent-400/500/600`) marching right, with a soft static glow. Earlier versions with flowing gradients, rolling wave arcs, a light surge and a glowing spark were tried and simplified away (too busy). Turned off with reduced motion. Data from `getWorkoutWeek`. The line under the heading now says when the last workout was ("Worked out today · 52m", "Last workout yesterday / on Thursday / on Oct 3") instead of the weekly count.
+    - [x] Order: stat cards → This Week → calendar + bar chart → year heatmap last (tracker `heatmapLast`), so the calendar/graph show without scrolling. Chosen over a "version A" with a compact one-row This Week card and the heatmap above the calendar (2026-11-16).
+  - [x] **All tabs:** heatmap weekday labels (Mon/Wed/Fri/Sun) stay pinned on the left when the heatmap scrolls sideways.
+    - [ ] More Workout cards/stats: maybe later; nothing planned.
+  - **Work tab:** layout placeholder for the Start/Stop hero and running clock (no timer logic yet; it's built in Stage 3).
+  - **Day dialogs:** design the Workout and Work calendar-day popups (list of workouts/sessions). They show the data for now; editing comes in Stages 3 and 6.
+  - **Per-tracker celebrations:** blue/green versions of the sun flare for a workout-goal hit and a work-goal hit. The greeting changes by tab and time of day.
+  - Done when: Zach is happy with how all four tabs look on desktop using `/?demo`. Phone layout is fixed in Stage 6.
+
+- [ ] **Stage 3 — Work timer (green, still localStorage).**
+  - Work tab hero: big Start / Stop button + running clock (`3:42:10 today`). A running session is a `workSessions` entry with `end = null`, so it survives closing the tab and reloads. (It shows on other devices once Stage 4 moves it to `work_sessions`.) Optional pause = stop + start.
+  - Guard rails: warn on a session running > 12h; if a session is still running at the day boundary (day start time), split it across the two days.
+  - Click a calendar day → dialog listing that day's sessions; add/edit/delete manually (start/end times, optional note).
+  - Stats per the table above, using the existing `workGoalMinutes` (default 6h) and `workWeekends` values. Their settings controls come in Stage 5.
+  - Unit tests for timer spans: running sessions, splitting at the day start, edits.
+  - Done when: a day of real timing shows correctly on the green dashboard and survives a reload.
+
+- [ ] **Stage 4 — Backend + login + migration (all trackers).**
+  - Create Supabase project; SQL migration file in repo (`supabase/migrations/`) with the schema (`profiles`, `wake_logs`, `workouts`, `work_sessions`, `api_tokens`) + RLS policies (`user_id = auth.uid()` on every table).
+  - `src/lib/api.js` data layer replacing `storage.js` (load profile + all three trackers, upsert, delete). Keep the pure functions (`logins.js`, `stats.js`, `workouts.js`, `work.js`, `spans.js`) unchanged; only the persistence moves.
+  - Login screen with magic link and Google; sign-out in settings. Open sign-ups; new accounts start with default settings (the first-run setup comes in Stage 5).
+  - Auth setup: Supabase redirect URLs for localhost, Vercel previews and the production domain. Google OAuth client and consent screen in Google Cloud. Env vars `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` in Vercel (production and preview).
+  - Morning recording: same `recordLoginIfNeeded` logic on load/visibility, written to `wake_logs`. If offline or the write fails, queue it in localStorage and retry so a morning is never lost. Timer start/stop gets the same queue.
+  - Work timer: a running session is a `work_sessions` row with `ended_at = null`, so it shows and can be stopped from any device.
+  - One-time migration: on first login, if `rise:data` exists in localStorage, offer "Upload your existing data" (morning logs, workouts, work sessions, settings). The JSON backup import also writes to the backend. Export keeps working and includes all trackers.
   - Demo mode stays fully local (no backend).
-  - Done when: the production URL records the morning log-on into Supabase, existing history is migrated, and a second browser shows the same data after login.
+  - Note: Supabase's free tier pauses a project after about a week with no activity. Daily use keeps it awake, but if it pauses, restore it from the dashboard.
+  - Done when: the production URL records the morning log-on into Supabase, existing history is migrated, the timer works across two browsers, and a second browser shows the same data after login.
 
-- [ ] **Stage 3 — Work timer (green).**
-  - Work tab hero: big Start / Stop button + running clock (`3:42:10 today`). A running session is a `work_sessions` row with `ended_at = null`, so it survives closing the tab and shows on any device. Optional pause = stop + start.
-  - Guard rails: warn on a session running > 12h; stop at the day boundary if still running (split across days).
-  - Click a calendar day → dialog listing that day's sessions; add/edit/delete manually.
-  - Stats per the table above; settings gain a daily hour goal and a Work weekend toggle.
-  - Done when: a day of real timing shows correctly on the green dashboard.
+- [ ] **Stage 5 — Customisation + settings.**
+  - Reorganise the settings popup by tracker (sections or tabs inside the popup): General (name, day start), Morning (target, grace, weekends), Workout (weekly goal), Work (daily hour goal, weekends), Backup, Account.
+  - Toggle which trackers are enabled. Disabled ones disappear from the tabs, the All view and the "perfect days" streak.
+  - First-run setup for new accounts (and an empty first visit): name, morning target, which trackers to enable, weekly/daily goals, plus a "Restore from backup" shortcut.
+  - Account: sign out and **delete account** (removes all rows; needed for open sign-ups).
+  - Any other customisation Zach wants (e.g. colours, celebrations on/off).
+  - Done when: a brand-new account can set itself up end to end, and every v2 setting can be changed in the UI.
 
-- [ ] **Stage 4 — Workouts from Strong (blue).**
-  - `/api/ingest/workout` (Vercel function): verify bearer token → upsert workouts (dedupe on `source + external_id`/start time). Optional `/api/ingest/strong-csv` that parses Strong's CSV into `details`.
+- [ ] **Stage 6 — Strong workouts end to end (blue) + wrap-up.**
+  - `/api/ingest/workout` (Vercel function): verify bearer token (hashed in `api_tokens`, update `last_used_at`) → upsert workouts (dedupe on `source + external_id`, falling back to start time). Accepts a batch. Keep the payload generic so Health Auto Export could post to it later.
   - Shortcut design (send each workout once): automation "Strong → Is Closed → Run Immediately", "Notify When Run" off, plus an optional nightly backup automation. The Shortcut keeps a `rise-last-sent.txt` (end date of the last workout sent) in Shortcuts' iCloud folder; it runs Find Workout, keeps only workouts that ended after that date, and **stops without any network call if there are none**. Otherwise it POSTs them, and on success saves the newest end date. Closing Strong mid-workout sends nothing (unfinished workouts aren't in Health). Server still dedupes as a safety net.
-  - Settings: "Connect iPhone" section — generate/revoke API token, show the endpoint URL, and step-by-step Shortcut instructions (or a shared iCloud Shortcut link).
-  - Workout tab: week-based streak (weekly goal setting, default 3), per-week bar chart with goal line, heatmap/calendar shaded by duration; calendar day dialog lists workouts (title, duration, and exercises when CSV detail exists); manual add/delete for missed syncs.
+  - Settings: "Connect iPhone" section — generate/revoke API token (shown once), show the endpoint URL, and step-by-step Shortcut instructions (including installing the Actions app) or a shared iCloud Shortcut link.
+  - Past workouts: Strong CSV import (`/api/ingest/strong-csv` or in-browser parsing) that fills `details` with exercises/sets. Needs Zach's sample CSV (Strong → Settings → Export Strong Data).
+  - Workout day dialog: show exercises when CSV detail exists; manual add/delete for missed syncs.
+  - Test on Zach's phone: finish a workout → it appears in Rise; reopen Strong with nothing new → no request sent; re-sent workouts don't duplicate.
+  - **Phone layout pass** (all phone visual fixes are saved for here, decided 2026-11-16). Known so far:
+    - The settings gear in the header is partly cut off at the right edge.
+    - Headings wrap awkwardly next to the big header icon (e.g. "Goal Crushed 💪" puts 💪 on its own line); shrink the icon and heading on small screens.
+    - Check every tab and popup at phone width.
+  - Wrap-up: update README (features, Supabase setup, Shortcut guide) and this plan, then merge to `main`. Sweep the open items and anything left over from earlier stages.
   - Done when: finishing a workout in Strong shows up in Rise without touching the computer.
 
-- [ ] **Stage 5 — "All" combined view.**
-  - Hero: today at a glance — woke at 7:58 ☀️ · lifted 52 min 💪 · worked 3h 40m 🌿.
-  - Stat cards: each tracker's current streak in its colour, plus a "perfect days" streak (every tracked tracker hit).
-  - Year heatmap: each day cell split into 3 thin stripes (gold/blue/green) or a combined score shade; month calendar days get three coloured dots. Hit rate card becomes three concentric rings.
-  - Done when: All reads at a glance and links (click) to each tracker's tab.
-
-- [ ] **Stage 6 — Tracker settings + polish (later, per your note).**
-  - Settings: toggle which trackers are enabled; disabled ones disappear from the tabs and All.
-  - Per-tracker celebrations (blue/green versions of the sun flare), greeting adapts by tab/time of day.
-  - Update README (new features, backend setup, Shortcut guide) and this plan.
-
 ## Open items
-- Merge `v2-stage-1` into `main` when Zach is happy with it (or keep stacking stages on the branch).
-- At phone width the settings gear in the header is partly cut off on the right (header layout predates v2). Small fix, not done yet.
-- `package-lock.json` had an uncommitted change before v2 started; left out of the Stage 1 commit on purpose.
-- Zach plans to move development from the Codespace to his laptop (clone into Desktop › Everything › Projects, branch `v2-stage-1`).
+- Merge `v2-stage-1` into `main` when Zach is happy with it, or keep stacking stages on the branch. Until Stage 4, merging only changes the UI, since data stays in localStorage on the same domain.
+- Dev moved from the Codespace to Zach's laptop (`Desktop › Everything › Projects › Rise`, branch `v2-stage-1`) on 2026-11-16.
 
 ## Decisions (2026-11-15)
 - Workout: weekly-goal streak, keep heatmap + calendar, add a per-week bar chart.
@@ -166,14 +199,16 @@ Rejected / fallback options:
 - Multi-user: open sign-ups.
 - Workouts come in via Strong → Health → Shortcut with the free Actions app's Find Workout (2026-11-16).
 - Look: tabs are icons; each tracker has its own colour (gold / blue / green / red for All); the sun is Morning-only (2026-11-16).
+- Phone visual fixes are collected and done last, in Stage 6 (2026-11-16).
+- Stage order (2026-11-16): UI design pass → work timer → backend → customisation/settings → Strong end to end.
 
 ## Ideas for later (not planned)
 - **Streak badges:** gold medallions for 5 / 10 / 20 / 50 days in a row and a 100% hit-rate month, in a row under the stat cards; unearned ones as faint tan outlines.
-- **First-run setup:** welcome card when there's no data (first visit or after a cache clear) to set target, grace and day start, with a "Restore from backup" shortcut.
 - **"Edited" marker** on hand-edited days (entries already store `edited: true`).
 
 ## Dev notes
 - `npm run dev`, then open `/?demo` to preview with ~8 months of fake data for all three trackers (dev only, never saved).
+- `/?demo&week=2` sets how many days this week have a workout (previews the progress card under/on/over goal).
 - `/?demo&celebrate` (or `/?celebrate` on real data) replays the hit celebration and new-best moment on every load (dev only).
 - `npm run test` (Vitest), `npm run lint`, `npm run build`.
 - Data lives in `localStorage` under `rise:data`. Settings saved there override the defaults in `logins.js`; change them from the gear in the header.

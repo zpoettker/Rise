@@ -1,4 +1,13 @@
-import { addDays, eachDayOfInterval, eachWeekOfInterval, max, startOfDay, startOfWeek } from 'date-fns'
+import {
+  addDays,
+  differenceInCalendarDays,
+  eachDayOfInterval,
+  eachWeekOfInterval,
+  max,
+  parseISO,
+  startOfDay,
+  startOfWeek,
+} from 'date-fns'
 import { toDateKey } from './logins'
 import { firstDay, totalsByDay } from './spans'
 import { rangeStart, streaks } from './stats'
@@ -11,16 +20,27 @@ const WEEK = { weekStartsOn: 1 }
 
 export const workoutStart = (state) => firstDay(totalsByDay(state.workouts, state.settings))
 
-// How strongly a workout day is shaded: 1 (under 30 min) → 4 (an hour or more)
-export function workoutLevel(minutes) {
-  if (minutes >= 60) return 4
-  if (minutes >= 45) return 3
-  if (minutes >= 30) return 2
-  return 1
+// How a workout day is shaded, from how many workout days its Mon–Sun week
+// has against the weekly goal: light under it, medium on it, dark over it.
+export function weekLevel(weekDays, goal) {
+  if (weekDays < goal) return 1
+  if (weekDays === goal) return 3
+  return 5
+}
+
+// Workout days in each Mon–Sun week, keyed by the week's Monday
+function weekCounts(totals) {
+  const counts = {}
+  for (const date of Object.keys(totals)) {
+    const week = toDateKey(startOfWeek(parseISO(date), WEEK))
+    counts[week] = (counts[week] ?? 0) + 1
+  }
+  return counts
 }
 
 // Every day from `from` to `today` (clamped to the first workout):
-// 'hit' (worked out), 'rest', or 'pending' (today, nothing yet).
+// 'hit' (worked out), 'rest', or 'pending' (today, nothing yet). Hits carry
+// `weekDays` (workout days in their week) and a `level` from it.
 export function getWorkoutDays(state, from, today = new Date()) {
   const totals = totalsByDay(state.workouts, state.settings)
   const start = firstDay(totals)
@@ -31,11 +51,14 @@ export function getWorkoutDays(state, from, today = new Date()) {
   if (first > last) return []
 
   const todayKey = toDateKey(today)
+  const weeks = weekCounts(totals)
+  const goal = state.settings.workoutWeeklyGoal
   return eachDayOfInterval({ start: first, end: last }).map((day) => {
     const date = toDateKey(day)
     const total = totals[date]
     if (total) {
-      return { date, status: 'hit', level: workoutLevel(total.minutes), ...total }
+      const weekDays = weeks[toDateKey(startOfWeek(day, WEEK))]
+      return { date, status: 'hit', level: weekLevel(weekDays, goal), weekDays, ...total }
     }
     return { date, status: date === todayKey ? 'pending' : 'rest', count: 0, minutes: 0 }
   })
@@ -68,6 +91,28 @@ export function getWorkoutWeeks(state, from, today = new Date()) {
     const status = days >= goal ? 'hit' : current ? 'pending' : 'missed'
     return { start: toDateKey(weekStart), days, minutes, status }
   })
+}
+
+// This Mon–Sun week for the progress card: workout days so far against the
+// goal, which days had one, and how many days are left (today included).
+export function getWorkoutWeek(state, today = new Date()) {
+  const start = startOfWeek(today, WEEK)
+  const totals = totalsByDay(state.workouts, state.settings)
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(start, i)
+    const key = toDateKey(date)
+    const now = startOfDay(today)
+    return { date: key, worked: Boolean(totals[key]), future: date > now, today: +date === +now }
+  })
+  return {
+    start: toDateKey(start),
+    end: toDateKey(addDays(start, 6)),
+    goal: state.settings.workoutWeeklyGoal,
+    workoutDays: days.filter((d) => d.worked).length,
+    minutes: days.reduce((sum, d) => sum + (totals[d.date]?.minutes ?? 0), 0),
+    daysLeft: 7 - differenceInCalendarDays(startOfDay(today), start),
+    days,
+  }
 }
 
 export function getWorkoutStats(state, range = '30d', today = new Date()) {

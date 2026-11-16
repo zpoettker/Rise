@@ -16,12 +16,13 @@ import { useHoverTooltip } from '../../hooks/useHoverTooltip'
 import { ChartTooltip } from './ChartTooltip'
 import { dayFill } from './days'
 
-const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] // Sunday first, like getDay
 
 function dayClasses(day) {
   if (day?.status === 'pending') return 'text-ink ring-2 ring-accent-500 ring-inset'
   const fill = dayFill(day)
-  return fill ? `${fill} text-ink` : 'text-ink-soft'
+  if (!fill) return 'text-ink-soft'
+  return `${fill} ${day.level === 5 ? 'text-white' : 'text-ink'}`
 }
 
 // `onSelectDay` makes tracked days clickable (to edit them); without it the
@@ -35,6 +36,11 @@ export function MonthCalendar({ tracker, state, onSelectDay, today = new Date() 
   const days = daysByDate(tracker, state, month, today)
   const monthDays = eachDayOfInterval({ start: month, end: endOfMonth(month) })
   const tracked = Object.values(days).filter((d) => d.date.startsWith(format(month, 'yyyy-MM')))
+
+  // the tracker picks the first column: Sunday (0, default) or Monday (1)
+  const weekStart = tracker.weekStartsOn ?? 0
+  const weekdays = [...WEEKDAYS.slice(weekStart), ...WEEKDAYS.slice(0, weekStart)]
+  const column = (date) => ((getDay(date) - weekStart + 7) % 7) + 1
 
   const canGoBack = start && month > startOfMonth(start)
   const canGoForward = !isSameMonth(month, today)
@@ -66,7 +72,7 @@ export function MonthCalendar({ tracker, state, onSelectDay, today = new Date() 
 
       <div ref={ref} className="relative">
         <div className="grid grid-cols-7 gap-y-1.5 text-center">
-          {WEEKDAYS.map((d, i) => (
+          {weekdays.map((d, i) => (
             <span key={i} className="pb-1 text-xs font-bold text-ink-soft">
               {d}
             </span>
@@ -119,7 +125,7 @@ export function MonthCalendar({ tracker, state, onSelectDay, today = new Date() 
               <div
                 key={key}
                 className="grid place-items-center"
-                style={i === 0 ? { gridColumnStart: getDay(date) + 1 } : undefined}
+                style={i === 0 ? { gridColumnStart: column(date) } : undefined}
               >
                 {cell}
               </div>

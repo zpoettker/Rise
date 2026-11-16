@@ -6,12 +6,13 @@ import { loadState, saveState } from '../lib/storage'
 const params = new URLSearchParams(window.location.search)
 const DEMO = import.meta.env.DEV && params.has('demo')
 const CELEBRATE = params.has('celebrate')
+const WEEK = params.has('week') ? Number(params.get('week')) : null
 
 // Loads saved data and records today's login on mount and whenever the tab
 // becomes visible again (covers Chrome being left open overnight).
 export function useLoginData() {
   const [state, setState] = useState(() =>
-    DEMO ? createDemoState(new Date(), { hitToday: CELEBRATE }) : recordLoginIfNeeded(loadState()),
+    DEMO ? createDemoState(new Date(), { hitToday: CELEBRATE, weekWorkouts: WEEK }) : recordLoginIfNeeded(loadState()),
   )
 
   useEffect(() => {

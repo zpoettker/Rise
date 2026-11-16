@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { createInitialState, updateSettings } from './logins'
-import { getWorkoutDays, getWorkoutStats, getWorkoutWeeks, workoutLevel } from './workouts'
+import {
+  getWorkoutDays,
+  getWorkoutWeek,
+  getWorkoutStats,
+  getWorkoutWeeks,
+  weekLevel,
+} from './workouts'
+import { TRACKERS } from './trackers'
 
 // Nov 2026: Mon 2 … Sun 8, Mon 9 … Sun 15, Mon 16 … Sun 22
 const day = (d, h = 12) => new Date(2026, 10, d, h, 0)
@@ -21,12 +28,22 @@ function stateWith(workouts, settings = {}) {
   return state
 }
 
-describe('workoutLevel', () => {
-  it('grades by length', () => {
-    expect(workoutLevel(20)).toBe(1)
-    expect(workoutLevel(30)).toBe(2)
-    expect(workoutLevel(50)).toBe(3)
-    expect(workoutLevel(75)).toBe(4)
+describe('getWorkoutWeek', () => {
+  it("sums this week's workout days and the days left", () => {
+    // Fri Nov 13; last week's workout doesn't count
+    const week = getWorkoutWeek(stateWith({ 6: 30, 9: 40, 11: 20 }), day(13))
+    expect(week).toMatchObject({ start: '2026-11-09', end: '2026-11-15', goal: 3 })
+    expect(week).toMatchObject({ workoutDays: 2, minutes: 60, daysLeft: 3 })
+    expect(week.days.map((d) => d.worked)).toEqual([true, false, true, false, false, false, false])
+    expect(week.days.map((d) => d.future)).toEqual([false, false, false, false, false, true, true])
+  })
+})
+
+describe('weekLevel', () => {
+  it('grades by the week against the goal', () => {
+    expect(weekLevel(2, 3)).toBe(1)
+    expect(weekLevel(3, 3)).toBe(3)
+    expect(weekLevel(4, 3)).toBe(5)
   })
 })
 
@@ -34,7 +51,17 @@ describe('getWorkoutDays', () => {
   it('marks workout days as hits and the rest as rest days', () => {
     const days = getWorkoutDays(stateWith({ 2: 40, 4: 65 }), day(1), day(5))
     expect(days.map((d) => d.status)).toEqual(['hit', 'rest', 'hit', 'pending'])
-    expect(days[0]).toMatchObject({ date: '2026-11-02', minutes: 40, count: 1, level: 2 })
+    expect(days[0]).toMatchObject({ date: '2026-11-02', minutes: 40, count: 1, weekDays: 2, level: 1 })
+  })
+
+  it('shades every workout in a week by that week against the goal', () => {
+    const goal = { workoutWeeklyGoal: 2 }
+    // week of Nov 2: 1 day (under), Nov 9: 2 (on goal), Nov 16: 3 (over)
+    const state = stateWith({ 3: 30, 10: 30, 12: 30, 16: 30, 18: 30, 20: 30 }, goal)
+    const levels = getWorkoutDays(state, day(1), day(22))
+      .filter((d) => d.status === 'hit')
+      .map((d) => d.level)
+    expect(levels).toEqual([1, 3, 3, 5, 5, 5])
   })
 
   it('puts a workout after midnight on the night before', () => {
@@ -87,5 +114,15 @@ describe('getWorkoutStats', () => {
       thisWeekDays: 0,
       averageMinutes: null,
     })
+  })
+})
+
+describe('workout heading', () => {
+  const heading = (workouts) => TRACKERS.workout.heading(stateWith(workouts), day(13))
+
+  it('cheers on this week against the goal (default 3)', () => {
+    expect(heading({ 3: 30 })).toBe("Let's Lift") // only last week
+    expect(heading({ 10: 30, 11: 30 })).toBe('Keep It Up')
+    expect(heading({ 9: 30, 11: 30, 13: 30 })).toBe('Goal Crushed!')
   })
 })

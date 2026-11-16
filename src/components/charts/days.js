@@ -1,4 +1,12 @@
-export const HIT_FILLS = [null, 'bg-accent-200', 'bg-accent-300', 'bg-accent-400', 'bg-accent-500']
+// Levels 1–4 are the usual scale; 5 is an extra-dark step (workouts over the weekly goal)
+export const HIT_FILLS = [
+  null,
+  'bg-accent-200',
+  'bg-accent-300',
+  'bg-accent-400',
+  'bg-accent-500',
+  'bg-accent-600',
+]
 export const MISS_FILL = 'bg-miss'
 export const HEATMAP_MISS_FILL = 'bg-miss-dark'
 

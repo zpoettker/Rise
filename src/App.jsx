@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { HitRateCard } from './components/charts/HitRateCard'
 import { MonthCalendar } from './components/charts/MonthCalendar'
+import { WeekProgressCard } from './components/charts/WeekProgressCard'
+import { WeeklyBarsCard } from './components/charts/WeeklyBarsCard'
 import { YearHeatmap } from './components/charts/YearHeatmap'
 import { EditLoginDialog } from './components/EditLoginDialog'
 import { SettingsDialog } from './components/SettingsDialog'
@@ -85,7 +87,8 @@ function App() {
         <HeaderIcon tab={tab} celebrate={celebrate} />
         <div>
           <h1 className="text-5xl font-semibold tracking-tight">
-            Good Morning{state.settings.name && `, ${state.settings.name}`}
+            {tracker?.heading?.(state, today) ??
+              `Good Morning${state.settings.name ? `, ${state.settings.name}` : ''}`}
           </h1>
           {tab === 'all' ? (
             <ul className="mt-2 space-y-0.5 text-ink-soft">
@@ -133,7 +136,9 @@ function App() {
             ))}
           </div>
 
-          <YearHeatmap tracker={tracker} state={state} today={today} />
+          {summary.week && <WeekProgressCard week={summary.week} />}
+
+          {!tracker.heatmapLast && <YearHeatmap tracker={tracker} state={state} today={today} />}
 
           <div className="grid gap-4 md:grid-cols-2">
             <MonthCalendar
@@ -142,8 +147,14 @@ function App() {
               today={today}
               onSelectDay={isMorning ? setEditingDate : undefined}
             />
-            <HitRateCard rate={summary.rate} rangeLabel={RANGE_LABELS[range]} />
+            {summary.weekly ? (
+              <WeeklyBarsCard weekly={summary.weekly} rangeLabel={RANGE_LABELS[range]} />
+            ) : (
+              <HitRateCard rate={summary.rate} rangeLabel={RANGE_LABELS[range]} />
+            )}
           </div>
+
+          {tracker.heatmapLast && <YearHeatmap tracker={tracker} state={state} today={today} />}
         </div>
       ) : (
         <AllPreview state={state} range={range} today={today} onOpen={setTab} />

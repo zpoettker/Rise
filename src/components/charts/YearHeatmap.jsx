@@ -62,6 +62,12 @@ export function YearHeatmap({ tracker, state, today = new Date() }) {
               gap: GAP,
             }}
           >
+            {/* covers the corner so month names scroll under it */}
+            <span
+              aria-hidden="true"
+              className="sticky left-0 z-10 bg-white shadow-[3px_0_0_white]"
+              style={{ gridColumn: 1, gridRow: 1 }}
+            />
             {weeks.map((_, i) => (
               <span
                 key={`m${i}`}
@@ -75,7 +81,7 @@ export function YearHeatmap({ tracker, state, today = new Date() }) {
             {WEEKDAY_LABELS.slice(0, rows).map((label, row) => (
               <span
                 key={`d${row}`}
-                className="leading-[11px]"
+                className="sticky left-0 z-10 bg-white leading-[11px] shadow-[3px_0_0_white]"
                 style={{ gridColumn: 1, gridRow: row + 2 }}
               >
                 {label}

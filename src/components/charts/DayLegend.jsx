@@ -9,15 +9,24 @@ export function DayLegend({ legend }) {
           {legend.miss}
         </span>
       )}
-      <span className="flex items-center gap-1.5">
-        {legend.low}
-        <span className="flex gap-[3px]">
-          {HIT_FILLS.slice(1).map((fill) => (
-            <span key={fill} className={`size-2.5 rounded-[3px] ${fill}`} />
-          ))}
+      {legend.steps ? (
+        legend.steps.map(({ level, label }) => (
+          <span key={level} className="flex items-center gap-1.5">
+            <span className={`size-2.5 rounded-[3px] ${HIT_FILLS[level]}`} />
+            {label}
+          </span>
+        ))
+      ) : (
+        <span className="flex items-center gap-1.5">
+          {legend.low}
+          <span className="flex gap-[3px]">
+            {HIT_FILLS.slice(1, 5).map((fill) => (
+              <span key={fill} className={`size-2.5 rounded-[3px] ${fill}`} />
+            ))}
+          </span>
+          {legend.high}
         </span>
-        {legend.high}
-      </span>
+      )}
     </div>
   )
 }
