@@ -20,7 +20,7 @@ export function DayLegend({ legend }) {
         <span className="flex items-center gap-1.5">
           {legend.low}
           <span className="flex gap-[3px]">
-            {HIT_FILLS.slice(1, 5).map((fill) => (
+            {HIT_FILLS.slice(1, 1 + (legend.levels ?? 4)).map((fill) => (
               <span key={fill} className={`size-2.5 rounded-[3px] ${fill}`} />
             ))}
           </span>

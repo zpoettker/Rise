@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
-import { isMorningDay } from './logins'
+import { isMorningDay, toDateKey } from './logins'
 import {
   formatDuration,
   formatTime12,
@@ -10,7 +10,17 @@ import {
   toMinutes,
   trackingStart,
 } from './stats'
-import { getWorkDays, getWorkStats, isWorkDay, workHeading, workStart } from './work'
+import {
+  getHoursBars,
+  getWorkDays,
+  getWorkRecords,
+  getWorkStats,
+  goalEntryOn,
+  goalOn,
+  isWorkDay,
+  workHeading,
+  workStart,
+} from './work'
 import {
   getWorkoutDays,
   getWorkoutWeek,
@@ -157,6 +167,15 @@ const workout = {
   },
 }
 
+// "Since Oct 15" for the goal in effect today (with the year if it's not this
+// year), or "Your starting goal" before it was ever changed
+function goalSince(settings, today) {
+  const entry = goalEntryOn(settings, today)
+  if (entry.first) return 'Your starting goal'
+  const date = parseISO(entry.from)
+  return `Since ${format(date, date.getFullYear() === today.getFullYear() ? 'MMM d' : 'MMM d, yyyy')}`
+}
+
 // 'yesterday', 'on Thursday' (this past week) or 'on Oct 3'
 function lastWorkoutLabel(state, today) {
   const last = getWorkoutDays(state, workoutStart(state), today).findLast((d) => d.status === 'hit')
@@ -175,50 +194,80 @@ const work = {
   days: getWorkDays,
   isTracked: isWorkDay,
   showsWeekends: (settings) => settings.workWeekends,
-  legend: { miss: 'Under goal', low: 'Goal', high: 'More' },
+  // shaded by total hours (5 steps); the calendar adds a dot on days that met their goal
+  legend: { miss: 'No work', low: 'Fewer hours', high: 'More', levels: 5 },
+  marksGoal: true,
   yearSummary: (days) => ({ value: countOf(days, 'hit'), label: 'days on goal' }),
   monthCounts: (days) => [
-    { value: countOf(days, 'hit'), label: 'on goal' },
+    { value: countOf(days, 'hit'), label: 'goal met', marker: true },
     { value: countOf(days, 'partial'), label: 'short' },
     { value: formatDuration(days.reduce((sum, d) => sum + d.minutes, 0)), label: 'total' },
   ],
   describe(day, settings) {
     const date = dateLabel(day.date)
-    const goal = formatDuration(settings.workGoalMinutes)
+    const goal = formatDuration(day.goal ?? goalOn(settings, day.date))
     if (day.minutes > 0) {
       const sofar = day.status === 'pending' ? ' so far' : ''
-      return { date, detail: `${formatDuration(day.minutes)}${sofar} · goal ${goal}` }
+      const met = day.status === 'hit' ? ' · goal met' : ''
+      return { date, detail: `${formatDuration(day.minutes)}${sofar} · goal ${goal}${met}` }
     }
     const detail = { missed: 'No work logged', pending: 'Not started yet' }[day.status] ?? 'No data'
     return { date, detail }
   },
-  summary(state, range, today) {
+  // `now` (ms) lets a running timer count live in today's numbers
+  summary(state, range, today, now = Date.now()) {
     const stats = getWorkStats(state, range, today)
-    const goal = formatDuration(state.settings.workGoalMinutes)
-    const todayDay = getWorkDays(state, today, today)[0]
+    const goalMinutes = goalOn(state.settings, today)
+    const goal = formatDuration(goalMinutes)
+    const records = getWorkRecords(state, today, now)
+    const worked = records.todayMinutes
+    const tracked = isWorkDay(today, state.settings)
     let line
-    if (!isWorkDay(today, state.settings) && !todayDay) line = 'Enjoy your weekend'
-    else if (!todayDay?.minutes) line = `Not started yet · goal ${goal}`
-    else if (todayDay.status === 'hit') line = `${formatDuration(todayDay.minutes)} today · goal reached`
-    else line = `${formatDuration(todayDay.minutes)} today · goal ${goal}`
+    if (!tracked && !worked) line = 'Enjoy your weekend'
+    else if (!worked) line = `Not started yet · goal ${goal}`
+    else if (worked >= goalMinutes) line = `${formatDuration(worked)} today · goal reached`
+    else line = `${formatDuration(worked)} today · goal ${goal}`
+    const { longestDay, longestBlock } = records
+    const dayLabel = (key) => (key === toDateKey(today) ? 'Today' : format(parseISO(key), 'MMM d, yyyy'))
     return {
       line,
+      // still used by the All tab; this tab shows records up top instead
       streak: { current: stats.currentStreak, best: stats.bestStreak },
+      streakCard: false,
       cards: [
-        { label: 'Best streak', value: stats.bestStreak },
+        { label: "Today's work", value: formatDuration(worked), sub: `of ${goal} goal`, accent: true },
+        { label: 'Current goal', value: goal, sub: goalSince(state.settings, today) },
+        {
+          label: 'Longest day',
+          value: longestDay.minutes ? formatDuration(longestDay.minutes) : '–',
+          sub: longestDay.date ? dayLabel(longestDay.date) : 'No work yet',
+          badge: records.newRecord ? 'New record!' : null,
+        },
+      ],
+      // the "More stats" card lower on the tab
+      extra: [
+        { label: 'Current streak', value: stats.currentStreak, unit: 'day', sub: 'in a row on goal' },
+        { label: 'Best streak', value: stats.bestStreak, unit: 'day' },
+        {
+          label: 'Longest block',
+          value: longestBlock.minutes ? formatDuration(longestBlock.minutes) : '–',
+          sub: longestBlock.date ? `one session · ${dayLabel(longestBlock.date)}` : 'one session',
+        },
+        { label: 'This week', value: formatDuration(records.weekMinutes) },
         {
           label: 'Avg work day',
           value: stats.averageMinutes == null ? '–' : formatDuration(stats.averageMinutes),
+          sub: 'in the selected range',
         },
+        { label: 'All time', value: formatDuration(records.totalMinutes) },
       ],
-      rate: {
-        label: 'Hit rate',
-        value: stats.hitRate,
-        caption: `${stats.hits} of ${stats.trackedDays} days`,
+      // shown as the hours vs. goal bar chart instead of a hit-rate ring
+      hours: {
+        ...getHoursBars(state, range, today),
         counts: [
-          { kind: 'hit', value: stats.hits, label: 'on goal' },
-          { kind: 'miss', value: stats.partial, label: 'short' },
-          { kind: 'miss', value: stats.missed, label: 'missed' },
+          { kind: 'hit', value: stats.hits, label: 'goal met' },
+          { kind: 'light', value: stats.partial + stats.missed, label: 'short' },
+          { kind: null, value: formatDuration(stats.totalMinutes), label: 'total' },
         ],
       },
     }

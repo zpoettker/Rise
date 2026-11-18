@@ -10,10 +10,12 @@ export const HIT_FILLS = [
 export const MISS_FILL = 'bg-miss'
 export const HEATMAP_MISS_FILL = 'bg-miss-dark'
 
-// Hits are shaded by their level (1–4); late, partial and missed days get a
-// muted tan; rest, pending and untracked days stay blank.
+// Hits are shaded by their level (1–5); late, partial and missed days get a
+// muted tan; rest, pending and untracked days stay blank. A partial day with
+// its own level (work: shaded by hours, not the goal) uses that shade instead.
 export function dayFill(day) {
   if (day?.status === 'hit') return HIT_FILLS[day.level]
+  if (day?.status === 'partial' && day.level) return HIT_FILLS[day.level]
   if (day?.status === 'late' || day?.status === 'partial' || day?.status === 'missed') {
     return MISS_FILL
   }

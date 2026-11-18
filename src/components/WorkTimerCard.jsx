@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNow } from '../hooks/useNow'
 import { dayOf, toDateKey } from '../lib/logins'
 import { spanDay, spanMinutes } from '../lib/spans'
 import { formatDuration } from '../lib/stats'
+import { goalOn, setWorkGoal } from '../lib/work'
 import {
   dismissTimer,
   formatClock,
@@ -17,6 +19,7 @@ import {
 import { Button } from './ui/Button'
 import { Card, CardLabel } from './ui/Card'
 import { SegmentedControl } from './ui/SegmentedControl'
+import { WorkGoalDialog } from './WorkGoalDialog'
 
 const MODES = [
   { value: 'stopwatch', label: 'Stopwatch' },
@@ -42,6 +45,7 @@ export function WorkTimerCard({ state, setState }) {
   const [mode, setMode] = useState(timer?.mode ?? 'stopwatch')
   const [minutes, setMinutes] = useState(25)
   const [logged, setLogged] = useState(null)
+  const [editingGoal, setEditingGoal] = useState(false)
 
   // a countdown that hits zero while the page is open: save it and chime
   useEffect(() => {
@@ -82,7 +86,8 @@ export function WorkTimerCard({ state, setState }) {
   }
 
   // today's total so far, including the stretch that's running
-  const todayKey = toDateKey(dayOf(new Date(now), settings))
+  const today = dayOf(new Date(now), settings)
+  const todayKey = toDateKey(today)
   const savedToday = state.workSessions
     .filter((s) => spanDay(s, settings) === todayKey)
     .reduce((sum, s) => sum + spanMinutes(s), 0)
@@ -252,15 +257,31 @@ export function WorkTimerCard({ state, setState }) {
           </p>
         )}
 
-        <TodayBar minutes={todayMinutes} goal={settings.workGoalMinutes} />
+        <TodayBar
+          minutes={todayMinutes}
+          goal={goalOn(settings, todayKey)}
+          onChangeGoal={() => setEditingGoal(true)}
+        />
       </div>
+
+      {editingGoal && (
+        <WorkGoalDialog
+          settings={settings}
+          today={today}
+          onClose={() => setEditingGoal(false)}
+          onSave={(minutes, from) => {
+            setState((s) => setWorkGoal(s, minutes, from))
+            setEditingGoal(false)
+          }}
+        />
+      )}
     </Card>
   )
 }
 
 // Today's work against the daily goal, with a notch per hour. The animated
 // energy fill takes over once the goal is reached.
-function TodayBar({ minutes, goal }) {
+function TodayBar({ minutes, goal, onChangeGoal }) {
   const max = Math.max(goal, minutes)
   const percent = (minutes / max) * 100
   const met = minutes >= goal
@@ -273,8 +294,17 @@ function TodayBar({ minutes, goal }) {
           Today <span className="font-bold text-ink">{formatDuration(minutes)}</span> of{' '}
           {formatDuration(goal)}
         </span>
-        <span className={met ? 'font-bold text-accent-700' : ''}>
-          {met ? 'Goal reached' : `${formatDuration(goal - minutes)} to go`}
+        <span className="flex items-baseline gap-3">
+          <span className={met ? 'font-bold text-accent-700' : ''}>
+            {met ? 'Goal reached' : `${formatDuration(goal - minutes)} to go`}
+          </span>
+          <button
+            type="button"
+            onClick={onChangeGoal}
+            className="rounded-full font-bold text-accent-700 underline decoration-accent-300 underline-offset-4 transition-colors hover:text-accent-800 hover:decoration-accent-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
+          >
+            Change goal
+          </button>
         </span>
       </div>
       <div
@@ -312,23 +342,6 @@ function TodayBar({ minutes, goal }) {
 
 const clampMinutes = (value) =>
   Math.min(MAX_TIMER_MINUTES, Math.max(1, Math.round(Number(value) || 1)))
-
-// The current time, updated every second while `active` (only read while
-// running, so it's fine for it to be stale otherwise)
-function useNow(active) {
-  const [now, setNow] = useState(() => Date.now())
-  useEffect(() => {
-    if (!active) return
-    const tick = () => setNow(Date.now())
-    const first = setTimeout(tick, 0)
-    const id = setInterval(tick, 1000)
-    return () => {
-      clearTimeout(first)
-      clearInterval(id)
-    }
-  }, [active])
-  return now
-}
 
 // Shows the running clock in the browser tab, restoring the title afterwards
 function useDocumentTitle(clock) {

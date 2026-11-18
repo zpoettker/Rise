@@ -127,7 +127,10 @@ export function MonthCalendar({ tracker, state, onSelectDay, today = new Date() 
                 className="grid place-items-center"
                 style={i === 0 ? { gridColumnStart: column(date) } : undefined}
               >
-                {cell}
+                <span className="relative">
+                  {cell}
+                  {tracker.marksGoal && trackedDay && day?.status === 'hit' && <GoalDot />}
+                </span>
               </div>
             )
           })}
@@ -136,9 +139,12 @@ export function MonthCalendar({ tracker, state, onSelectDay, today = new Date() 
       </div>
 
       <div className="flex gap-4 border-t border-line pt-4 text-sm text-ink-soft">
-        {tracker.monthCounts(tracked).map(({ value, label }) => (
-          <span key={label}>
-            <span className="font-bold text-ink">{value}</span> {label}
+        {tracker.monthCounts(tracked).map(({ value, label, marker }) => (
+          <span key={label} className="flex items-center gap-1.5">
+            {marker && <span className="size-2 rounded-full bg-accent-700" />}
+            <span>
+              <span className="font-bold text-ink">{value}</span> {label}
+            </span>
           </span>
         ))}
       </div>
@@ -156,5 +162,15 @@ function NavButton({ label, children, ...props }) {
     >
       {children}
     </button>
+  )
+}
+
+// Badge on a day that met its goal (trackers whose shading isn't the goal)
+function GoalDot() {
+  return (
+    <span
+      aria-hidden="true"
+      className="pointer-events-none absolute -top-0.5 -right-0.5 size-2.5 rounded-full bg-accent-700 ring-2 ring-white"
+    />
   )
 }

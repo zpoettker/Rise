@@ -138,11 +138,26 @@ describe('backups', () => {
   it('keeps workouts, work sessions and the newer settings', () => {
     const full = {
       ...state,
-      settings: { ...state.settings, morningWeekends: true, workoutWeeklyGoal: 4, workGoalMinutes: 300 },
+      settings: {
+        ...state.settings,
+        morningWeekends: true,
+        workoutWeeklyGoal: 4,
+        workGoals: [
+          { from: '2000-01-01', minutes: 120 },
+          { from: '2026-11-23', minutes: 150 },
+        ],
+      },
       workouts: [{ id: 'a', start: '2026-09-28T18:00', end: '2026-09-28T18:45' }],
       workSessions: [{ id: 'b', start: '2026-09-28T09:00', end: '2026-09-28T12:00' }],
     }
     expect(parseBackup(JSON.stringify(createBackup(full)))).toEqual(full)
+  })
+
+  it('turns an older single work goal into the start of the goal history', () => {
+    const old = parseBackup(JSON.stringify({ entries: {}, settings: { workGoalMinutes: 300 } }))
+    expect(old.settings.workGoals).toEqual([{ from: '2000-01-01', minutes: 300 }])
+    const none = parseBackup(JSON.stringify({ entries: {}, settings: {} }))
+    expect(none.settings.workGoals).toEqual([{ from: '2000-01-01', minutes: 360 }])
   })
 
   it('treats a v1 backup as having no workouts or work', () => {

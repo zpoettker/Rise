@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { HitRateCard } from './components/charts/HitRateCard'
+import { HoursBarsCard } from './components/charts/HoursBarsCard'
 import { MonthCalendar } from './components/charts/MonthCalendar'
 import { WeekProgressCard } from './components/charts/WeekProgressCard'
 import { WeeklyBarsCard } from './components/charts/WeeklyBarsCard'
+import { WeightCard } from './components/charts/WeightCard'
+import { WeighInDialog, WeightGoalDialog } from './components/WeightDialogs'
 import { YearHeatmap } from './components/charts/YearHeatmap'
 import { EditLoginDialog } from './components/EditLoginDialog'
 import { SettingsDialog } from './components/SettingsDialog'
@@ -13,10 +16,12 @@ import { SegmentedControl } from './components/ui/SegmentedControl'
 import { Sun } from './components/ui/Sun'
 import { DumbbellIcon, LaptopIcon, SunIcon, TRACKER_ICONS } from './components/ui/TrackerIcons'
 import { useCelebration } from './hooks/useCelebration'
+import { useNow } from './hooks/useNow'
 import { useLoginData } from './hooks/useLoginData'
 import { useTrackerTab } from './hooks/useTrackerTab'
 import { dayOf, deleteLogin, isMorningDay, setLoginTime, toDateKey, updateSettings } from './lib/logins'
 import { describeLogin, isNewBestToday } from './lib/stats'
+import { deleteWeight, saveWeight } from './lib/weights'
 import { TRACKER_LIST, TRACKERS } from './lib/trackers'
 
 const TAB_OPTIONS = [
@@ -45,12 +50,16 @@ function App() {
   const [range, setRange] = useState('30d')
   const [editingDate, setEditingDate] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // null, 'goal', or { weight } (weight null = adding a new weigh-in)
+  const [weightDialog, setWeightDialog] = useState(null)
   const today = dayOf(new Date(), state.settings)
   const todayKey = toDateKey(today)
   const todayEntry = state.entries[todayKey]
   const todayResult = todayEntry && describeLogin(todayEntry.time, state.settings)
   const tracker = TRACKERS[tab] ?? null
-  const summary = tracker?.summary(state, range, today)
+  // ticks every second while the work timer runs, so today's numbers count live
+  const now = useNow(Boolean(state.timer?.startedAt))
+  const summary = tracker?.summary(state, range, today, now)
   // the celebrations belong to the morning; they wait until that tab is shown
   const isMorning = tab === 'morning'
   const { celebrate, preview } = useCelebration(todayKey, isMorning && Boolean(todayResult?.hit))
@@ -97,7 +106,7 @@ function App() {
                 <li key={t.id} data-tracker={t.id} className="flex items-center gap-2">
                   <span className="size-2 shrink-0 rounded-full bg-accent-400" />
                   <span>
-                    {t.id === 'morning' ? morningLine : t.summary(state, range, today).line}
+                    {t.id === 'morning' ? morningLine : t.summary(state, range, today, now).line}
                   </span>
                 </li>
               ))}
@@ -125,15 +134,11 @@ function App() {
       {tracker ? (
         <div key={tab} className="animate-rise space-y-8">
           <div className="grid gap-4 sm:grid-cols-3">
-            <StreakCard streak={summary.streak} newBest={newBest} celebrate={celebrate} />
+            {summary.streakCard !== false && (
+              <StreakCard streak={summary.streak} newBest={newBest} celebrate={celebrate} />
+            )}
             {summary.cards.map((card) => (
-              <Card key={card.label}>
-                <CardLabel>{card.label}</CardLabel>
-                <p className="mt-2 font-display text-5xl font-semibold tabular-nums">
-                  {card.value}
-                  <Unit unit={card.unit} value={card.value} />
-                </p>
-              </Card>
+              <StatCard key={card.label} card={card} />
             ))}
           </div>
 
@@ -151,10 +156,26 @@ function App() {
             />
             {summary.weekly ? (
               <WeeklyBarsCard weekly={summary.weekly} rangeLabel={RANGE_LABELS[range]} />
+            ) : summary.hours ? (
+              <HoursBarsCard hours={summary.hours} rangeLabel={RANGE_LABELS[range]} />
             ) : (
               <HitRateCard rate={summary.rate} rangeLabel={RANGE_LABELS[range]} />
             )}
           </div>
+
+          {tab === 'workout' && (
+            <WeightCard
+              state={state}
+              range={range}
+              rangeLabel={RANGE_LABELS[range]}
+              today={today}
+              onAdd={() => setWeightDialog({ weight: null })}
+              onEdit={(weight) => setWeightDialog({ weight })}
+              onGoal={() => setWeightDialog('goal')}
+            />
+          )}
+
+          {summary.extra && <MoreStatsCard stats={summary.extra} />}
 
           {tracker.heatmapLast && <YearHeatmap tracker={tracker} state={state} today={today} />}
         </div>
@@ -176,6 +197,33 @@ function App() {
           onDelete={() => {
             setState((s) => deleteLogin(s, editingDate))
             setEditingDate(null)
+          }}
+        />
+      )}
+
+      {weightDialog === 'goal' && (
+        <WeightGoalDialog
+          settings={state.settings}
+          onClose={() => setWeightDialog(null)}
+          onSave={(settings) => {
+            setState((s) => updateSettings(s, settings))
+            setWeightDialog(null)
+          }}
+        />
+      )}
+      {weightDialog && weightDialog !== 'goal' && (
+        <WeighInDialog
+          weight={weightDialog.weight}
+          unit={state.settings.weightUnit}
+          lastKg={state.weights.at(-1)?.kg}
+          onClose={() => setWeightDialog(null)}
+          onSave={(weight) => {
+            setState((s) => saveWeight(s, weight))
+            setWeightDialog(null)
+          }}
+          onDelete={() => {
+            setState((s) => deleteWeight(s, weightDialog.weight.id))
+            setWeightDialog(null)
           }}
         />
       )}
@@ -265,6 +313,61 @@ function StreakCard({ streak, newBest, celebrate }) {
           </span>
         )}
       </p>
+    </Card>
+  )
+}
+
+// A top stat card. Optional: `unit` ('week' → weeks), `sub` (small line
+// under the number), `accent` (number in the tab colour) and `badge` (a
+// "New record!" pill with a 🔥).
+function StatCard({ card }) {
+  return (
+    <Card>
+      <div className="flex items-center justify-between gap-2">
+        <CardLabel>{card.label}</CardLabel>
+        {card.badge && (
+          <span className="animate-rise rounded-full bg-accent-100 px-2.5 py-0.5 text-xs font-bold text-accent-700">
+            {card.badge}
+          </span>
+        )}
+      </div>
+      <p
+        className={`mt-2 font-display text-5xl font-semibold tabular-nums ${card.accent ? 'text-accent-600' : ''}`}
+      >
+        {card.value}
+        <Unit unit={card.unit} value={card.value} />
+        {card.badge && (
+          <span className="ml-2 text-4xl" role="img" aria-label="New record">
+            🔥
+          </span>
+        )}
+      </p>
+      {card.sub && <p className="mt-1 text-sm text-ink-soft">{card.sub}</p>}
+    </Card>
+  )
+}
+
+// Extra numbers in one card, as a grid of small stats
+function MoreStatsCard({ stats }) {
+  return (
+    <Card>
+      <CardLabel>More stats</CardLabel>
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3">
+        {stats.map((stat) => (
+          <div key={stat.label}>
+            <dt className="text-sm font-semibold text-ink-soft">{stat.label}</dt>
+            <dd className="mt-0.5 font-display text-3xl font-semibold tabular-nums">
+              {stat.value}
+              {stat.unit && (
+                <span className="ml-1.5 font-sans text-base font-bold text-ink-soft">
+                  {stat.value === 1 ? stat.unit : `${stat.unit}s`}
+                </span>
+              )}
+            </dd>
+            {stat.sub && <dd className="text-xs text-ink-soft">{stat.sub}</dd>}
+          </div>
+        ))}
+      </dl>
     </Card>
   )
 }

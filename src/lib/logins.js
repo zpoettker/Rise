@@ -2,7 +2,11 @@ import { format, isWeekend, subMinutes } from 'date-fns'
 
 export const MAX_NAME_LENGTH = 30
 export const MAX_WEEKLY_GOAL = 7
+export const MIN_WORK_GOAL_MINUTES = 15
 export const MAX_WORK_GOAL_MINUTES = 16 * 60
+// sensible weigh-in range in kg (about 44–880 lb)
+export const MIN_KG = 20
+export const MAX_KG = 400
 
 export const DEFAULT_SETTINGS = {
   name: '',
@@ -13,14 +17,20 @@ export const DEFAULT_SETTINGS = {
   morningWeekends: false,
   // workouts per Mon–Sun week for a week to count toward the streak
   workoutWeeklyGoal: 3,
-  // minutes of work for a day to count as a hit
-  workGoalMinutes: 6 * 60,
+  // daily work goal over time: each entry applies from its date until the
+  // next one (the first also covers everything before it), so raising the
+  // goal never changes how earlier days were graded. Sorted by `from`.
+  workGoals: [{ from: '2000-01-01', minutes: 6 * 60 }],
   workWeekends: false,
+  // weight is stored in kg and shown in this unit; the goal is optional
+  weightUnit: 'lb',
+  weightGoalKg: null,
 }
 
 // `entries` are morning log-ons keyed by local date ('yyyy-MM-dd'), so each day
 // holds at most one. Workouts and work sessions are lists of
-// { id, start, end } in local time ('yyyy-MM-ddTHH:mm').
+// { id, start, end } in local time ('yyyy-MM-ddTHH:mm'). Weigh-ins are
+// { id, at, kg } (see weights.js).
 export function createInitialState() {
   return {
     version: 2,
@@ -28,8 +38,11 @@ export function createInitialState() {
     entries: {},
     workouts: [],
     workSessions: [],
+    weights: [],
   }
 }
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
 
 export const toDateKey = (date) => format(date, 'yyyy-MM-dd')
 export const toTimeString = (date) => format(date, 'HH:mm')
@@ -43,6 +56,23 @@ const minutesOf = (time) => {
 // previous day. Returns a Date whose calendar date is that day.
 export function dayOf(now, settings) {
   return subMinutes(now, minutesOf(settings.dayStart))
+}
+
+const isGoalMinutes = (value) =>
+  Number.isInteger(value) && value >= MIN_WORK_GOAL_MINUTES && value <= MAX_WORK_GOAL_MINUTES
+
+// The work goal history from saved settings or a backup: a valid sorted list,
+// or the older single `workGoalMinutes` turned into the first entry.
+export function readWorkGoals(saved) {
+  if (Array.isArray(saved?.workGoals)) {
+    const goals = saved.workGoals
+      .filter((g) => DATE_KEY.test(g?.from) && isGoalMinutes(g.minutes))
+      .map(({ from, minutes }) => ({ from, minutes }))
+      .sort((a, b) => (a.from < b.from ? -1 : 1))
+    if (goals.length) return goals
+  }
+  if (isGoalMinutes(saved?.workGoalMinutes)) return [{ from: '2000-01-01', minutes: saved.workGoalMinutes }]
+  return DEFAULT_SETTINGS.workGoals
 }
 
 // Whether a date is a tracked morning (weekends only when turned on).
@@ -92,7 +122,6 @@ export function createBackup(state, now = new Date()) {
   return { ...saved, exportedAt: now.toISOString() }
 }
 
-const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/
 
@@ -111,6 +140,23 @@ function parseSpans(list, what) {
       item.start < item.end
     if (!valid) throw new Error(`The backup has an invalid entry in its ${what}.`)
     return { id: String(item.id), start: item.start, end: item.end }
+  })
+}
+
+// Weigh-ins from a backup: an id, a local date-time and a sensible weight in kg
+function parseWeights(list) {
+  if (list == null) return []
+  if (!Array.isArray(list)) throw new Error("The backup's weights aren't a list.")
+  return list.map((item) => {
+    const valid =
+      item &&
+      (typeof item.id === 'string' || typeof item.id === 'number') &&
+      DATE_TIME.test(item.at) &&
+      typeof item.kg === 'number' &&
+      item.kg >= MIN_KG &&
+      item.kg <= MAX_KG
+    if (!valid) throw new Error('The backup has an invalid weigh-in.')
+    return { id: String(item.id), at: item.at, kg: item.kg }
   })
 }
 
@@ -149,8 +195,10 @@ export function parseBackup(text) {
   if (isWholeNumber(saved.workoutWeeklyGoal, 1, MAX_WEEKLY_GOAL)) {
     settings.workoutWeeklyGoal = saved.workoutWeeklyGoal
   }
-  if (isWholeNumber(saved.workGoalMinutes, 1, MAX_WORK_GOAL_MINUTES)) {
-    settings.workGoalMinutes = saved.workGoalMinutes
+  settings.workGoals = readWorkGoals(saved)
+  if (saved.weightUnit === 'lb' || saved.weightUnit === 'kg') settings.weightUnit = saved.weightUnit
+  if (typeof saved.weightGoalKg === 'number' && saved.weightGoalKg >= MIN_KG && saved.weightGoalKg <= MAX_KG) {
+    settings.weightGoalKg = saved.weightGoalKg
   }
 
   return {
@@ -159,5 +207,6 @@ export function parseBackup(text) {
     entries,
     workouts: parseSpans(data.workouts, 'workouts'),
     workSessions: parseSpans(data.workSessions, 'work sessions'),
+    weights: parseWeights(data.weights),
   }
 }

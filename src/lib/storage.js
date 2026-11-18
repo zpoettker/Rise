@@ -1,4 +1,4 @@
-import { createInitialState, DEFAULT_SETTINGS } from './logins'
+import { createInitialState, DEFAULT_SETTINGS, readWorkGoals } from './logins'
 
 const STORAGE_KEY = 'rise:data'
 
@@ -8,10 +8,13 @@ export function loadState() {
     if (!raw) return createInitialState()
 
     const parsed = JSON.parse(raw)
+    // eslint-disable-next-line no-unused-vars
+    const { workGoalMinutes, ...saved } = parsed.settings ?? {}
     return {
       ...createInitialState(),
       ...parsed,
-      settings: { ...DEFAULT_SETTINGS, ...parsed.settings },
+      // older saves had one work goal; it becomes the start of the history
+      settings: { ...DEFAULT_SETTINGS, ...saved, workGoals: readWorkGoals(parsed.settings) },
     }
   } catch {
     return createInitialState()

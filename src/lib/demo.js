@@ -11,6 +11,7 @@ import {
 } from 'date-fns'
 import { createInitialState, toDateKey } from './logins'
 import { formatMinutes, toMinutes } from './stats'
+import { goalOn } from './work'
 
 const stamp = (date) => format(date, "yyyy-MM-dd'T'HH:mm")
 const at = (day, minutes) => setMinutes(setHours(day, 0), minutes)
@@ -60,19 +61,42 @@ export function createDemoState(
     }
   }
 
-  // work: weekdays, two or three sessions adding up to roughly 3–9 hours
+  // work: the goal ramps from 2h toward 8h, raised every 4 weeks (on Mondays)
+  const monday = (daysAgo) => toDateKey(startOfWeek(subDays(today, daysAgo), { weekStartsOn: 1 }))
+  const ramp = [150, 180, 240, 270, 330, 360, 420, 480]
+  state.settings.workGoals = [
+    { from: '2000-01-01', minutes: 120 },
+    ...ramp.map((minutes, i) => ({ from: monday(240 - 28 * (i + 1)), minutes })),
+  ]
+
+  // weekdays: hours swing a lot around that day's goal (about 45–150% of it,
+  // the odd day off), so they climb with the goal; split into focus blocks
   for (const day of [...past, today]) {
-    if (isWeekend(day) || random() < 0.06) continue
+    if (isWeekend(day) || random() < 0.07) continue
     const isToday = toDateKey(day) === toDateKey(today)
-    let clock = between(8 * 60, 9 * 60 + 30)
-    const sessions = isToday ? 1 : between(2, 3)
-    for (let i = 0; i < sessions; i++) {
+    const goal = goalOn(state.settings, day)
+    let left = isToday ? Math.round(goal * 0.3) : Math.min(11 * 60, Math.round(goal * (0.45 + random() * 1.05)))
+    let clock = between(7 * 60 + 30, 9 * 60 + 30)
+    while (left > 0) {
+      const length = Math.min(left, between(45, 150))
       const start = at(day, clock)
-      const length = isToday ? 95 : between(100, 200)
       state.workSessions.push({ id: `s${id++}`, start: stamp(start), end: stamp(addMinutes(start, length)) })
-      clock += length + between(20, 75)
+      left -= length
+      clock += length + between(10, 60)
     }
   }
+
+  // weigh-ins most mornings: about 194 lb drifting down to ~181 with daily
+  // noise (own random sequence, so the rest of the demo stays the same)
+  let weightSeed = 7
+  const weightRandom = () => (weightSeed = (weightSeed * 16807) % 2147483647) / 2147483647
+  past.forEach((day, i) => {
+    if (weightRandom() < 0.3) return
+    const trendLb = 194 - (13 * i) / past.length + Math.sin(i / 9) * 1.2
+    const lb = trendLb + (weightRandom() - 0.5) * 2.4
+    const when = at(day, 6 * 60 + 30 + Math.round(weightRandom() * 60))
+    state.weights.push({ id: `wt${i}`, at: stamp(when), kg: Math.round((lb / 2.20462262) * 100) / 100 })
+  })
 
   // replace today's work with sessions adding up to N hours, from 8 AM in
   // blocks of up to 2h with 15 min breaks (later blocks may be in the future)
