@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CastleCard } from './components/charts/CastleCard'
 import { HitRateCard } from './components/charts/HitRateCard'
 import { HoursBarsCard } from './components/charts/HoursBarsCard'
 import { MonthCalendar } from './components/charts/MonthCalendar'
@@ -144,6 +145,7 @@ function App() {
 
           {summary.week && <WeekProgressCard week={summary.week} />}
           {tab === 'work' && <WorkTimerCard state={state} setState={setState} />}
+          {summary.castle && <CastleCard castle={summary.castle} />}
 
           {!tracker.heatmapLast && <YearHeatmap tracker={tracker} state={state} today={today} />}
 

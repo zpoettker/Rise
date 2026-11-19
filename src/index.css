@@ -83,6 +83,8 @@
   --animate-spin-slow: spin 60s linear infinite;
   --animate-rise: rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-grow: grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-brick: brick 0.5s cubic-bezier(0.3, 1.3, 0.5, 1) both;
+  --animate-glow: glow 1.6s ease-in-out infinite alternate;
 
   /* hit celebration (plays once per day) */
   --animate-sun-flare: sun-flare 2.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -161,6 +163,30 @@
     }
     100% {
       transform: scale(1);
+    }
+  }
+
+  /* a brick dropping into place on the wall */
+  @keyframes brick {
+    from {
+      opacity: 0;
+      transform: translateY(-14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* the brick being laid right now */
+  @keyframes glow {
+    from {
+      filter: brightness(1);
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent-400) 0%, transparent);
+    }
+    to {
+      filter: brightness(1.12);
+      box-shadow: 0 0 10px 1px color-mix(in srgb, var(--color-accent-400) 70%, transparent);
     }
   }
 

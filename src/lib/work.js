@@ -1,4 +1,12 @@
-import { eachDayOfInterval, isWeekend, max, nextMonday, parseISO, startOfDay, startOfWeek } from 'date-fns'
+import {
+  eachDayOfInterval,
+  isWeekend,
+  max,
+  nextMonday,
+  parseISO,
+  startOfDay,
+  startOfWeek,
+} from 'date-fns'
 import { dayOf, toDateKey } from './logins'
 import { firstDay, spanDay, spanMinutes, totalsByDay } from './spans'
 import { rangeStart, streaks } from './stats'

@@ -1,5 +1,6 @@
 import { endOfDay, format, startOfDay } from 'date-fns'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import { useWidth } from '../../hooks/useWidth'
 import { rangeStart } from '../../lib/stats'
 import { formatWeight, getWeightSummary, toUnit } from '../../lib/weights'
 import { Button } from '../ui/Button'
@@ -261,16 +262,4 @@ function Chart({ points, unit, goalKg, width, from, today, hover, onHover, onEdi
       <ChartTooltip tip={tip} />
     </>
   )
-}
-
-// Width of an element, kept up to date as it resizes
-function useWidth() {
-  const ref = useRef(null)
-  const [width, setWidth] = useState(0)
-  useEffect(() => {
-    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
-    observer.observe(ref.current)
-    return () => observer.disconnect()
-  }, [])
-  return [ref, width]
 }

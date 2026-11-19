@@ -1,4 +1,5 @@
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
+import { getCastleProgress } from './castles'
 import { isMorningDay, toDateKey } from './logins'
 import {
   formatDuration,
@@ -244,6 +245,7 @@ const work = {
           badge: records.newRecord ? 'New record!' : null,
         },
       ],
+      castle: getCastleProgress(state, today, now),
       // the "More stats" card lower on the tab
       extra: [
         { label: 'Current streak', value: stats.currentStreak, unit: 'day', sub: 'in a row on goal' },
