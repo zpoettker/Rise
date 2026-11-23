@@ -12,6 +12,7 @@ import { useState } from 'react'
 import { toDateKey } from '../../lib/logins'
 import { daysByDate } from '../../lib/trackers'
 import { Card, CardLabel } from '../ui/Card'
+import { NavButton } from '../ui/NavButton'
 import { useHoverTooltip } from '../../hooks/useHoverTooltip'
 import { ChartTooltip } from './ChartTooltip'
 import { dayFill } from './days'
@@ -107,7 +108,7 @@ export function MonthCalendar({ tracker, state, onSelectDay, today = new Date() 
               cell = (
                 <button
                   type="button"
-                  aria-label={`${described.date}: ${described.detail}. Edit log on time`}
+                  aria-label={`${described.date}: ${described.detail}. ${tracker.editLabel ?? 'Edit'}`}
                   onClick={() => {
                     hide()
                     onSelectDay(key)
@@ -149,19 +150,6 @@ export function MonthCalendar({ tracker, state, onSelectDay, today = new Date() 
         ))}
       </div>
     </Card>
-  )
-}
-
-function NavButton({ label, children, ...props }) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      className="grid size-9 place-items-center rounded-full text-xl text-ink-soft transition-colors hover:bg-accent-100 hover:text-ink disabled:opacity-30 disabled:hover:bg-transparent"
-      {...props}
-    >
-      {children}
-    </button>
   )
 }
 

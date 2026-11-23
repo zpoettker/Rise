@@ -85,6 +85,7 @@
   --animate-grow: grow 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
   --animate-brick: brick 0.5s cubic-bezier(0.3, 1.3, 0.5, 1) both;
   --animate-glow: glow 1.6s ease-in-out infinite alternate;
+  --animate-slide: slide 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 
   /* hit celebration (plays once per day) */
   --animate-sun-flare: sun-flare 2.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -175,6 +176,16 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  /* a timeline block sliding in from its start */
+  @keyframes slide {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
     }
   }
 

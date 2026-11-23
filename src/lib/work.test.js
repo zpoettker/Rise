@@ -2,14 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { createInitialState, updateSettings } from './logins'
 import {
   getHoursBars,
+  applyWeekBlocks,
+  blockLevel,
+  getWeekTimeline,
   getWorkRecords,
   getWorkDays,
   getWorkStats,
   goalEntryOn,
   goalOn,
   nextGoalWeek,
+  setWeekGoal,
   setWorkGoal,
   workHeading,
+  weekBlocks,
   workLevel,
 } from './work'
 
@@ -211,5 +216,112 @@ describe('getWorkRecords', () => {
     // a running block longer than any saved one becomes the longest
     const long = getWorkRecords(state, day(10), day(10, 21).getTime())
     expect(long.longestBlock).toMatchObject({ minutes: 480, date: '2026-11-10' })
+  })
+})
+
+describe('getWeekTimeline', () => {
+  it('places this week\'s sessions on each day, with a running stretch live', () => {
+    const state = stateWith({ 2: 2, 4: 1 }) // 9 AM each
+    state.workSessions.push({ id: 'late', start: '2026-11-03T23:00', end: '2026-11-04T01:30' }) // Tue night
+    state.workSessions.push({ id: 'old', start: '2026-10-30T09:00', end: '2026-10-30T10:00' }) // last week
+    state.timer = { mode: 'stopwatch', startedAt: day(4, 13).getTime(), elapsedBefore: 0 }
+    const t = getWeekTimeline(state, day(4), day(4, 14).getTime())
+
+    expect(t.days.map((d) => d.date.slice(8))).toEqual(['02', '03', '04', '05', '06', '07', '08'])
+    expect(t.days[0].blocks).toEqual([{ start: 540, end: 660, minutes: 120, level: 4 }])
+    // after midnight still belongs to Tuesday, so it runs past 24:00
+    expect(t.days[1].blocks).toEqual([{ start: 1380, end: 1530, minutes: 150, level: 4 }])
+    expect(t.days[2].blocks).toEqual([
+      { start: 540, end: 600, minutes: 60, level: 3 },
+      { start: 780, end: 840, minutes: 60, level: 3, running: true },
+    ])
+    expect(t.days[2]).toMatchObject({ minutes: 120, today: true, future: false })
+    expect(t.days[3].future).toBe(true)
+    // the axis widens to fit the late session
+    expect([t.from, t.to]).toEqual([360, 26 * 60])
+    expect(t.now).toBe(14 * 60)
+  })
+})
+
+describe('timeline weeks and shading', () => {
+  it('shades blocks by length', () => {
+    expect([20, 30, 75, 120].map(blockLevel)).toEqual([1, 2, 3, 4])
+  })
+
+  it('can show an earlier week, still marking today correctly', () => {
+    const state = stateWith({ 30: 1 }) // Fri Oct 30 is in the week before
+    state.workSessions[0] = { id: 'o', start: '2026-10-30T09:00', end: '2026-10-30T10:00' }
+    const t = getWeekTimeline(state, day(4), day(4, 12).getTime(), new Date(2026, 9, 28))
+    expect(t.start).toBe('2026-10-26')
+    expect(t.days[4].blocks).toHaveLength(1)
+    expect(t.days.some((d) => d.today)).toBe(false)
+    expect(t.days.every((d) => !d.future)).toBe(true)
+  })
+})
+
+describe('editing a week', () => {
+  const week = '2026-11-02'
+  const state = () => {
+    const s = stateWith({ 2: 2, 4: 1 }) // 9 AM
+    s.workSessions.push({ id: 'late', start: '2026-11-03T23:00', end: '2026-11-04T01:30' })
+    s.workSessions.push({ id: 'other', start: '2026-11-10T09:00', end: '2026-11-10T10:00' }) // next week
+    return s
+  }
+
+  it('turns the week\'s sessions into blocks', () => {
+    expect(weekBlocks(state(), week)).toEqual([
+      { id: '2', day: '2026-11-02', start: 540, end: 660 },
+      { id: 'late', day: '2026-11-03', start: 1380, end: 1530 },
+      { id: '4', day: '2026-11-04', start: 540, end: 600 },
+    ])
+  })
+
+  it('saves edited, moved, added and deleted blocks back as sessions', () => {
+    const blocks = weekBlocks(state(), week)
+    blocks[0] = { ...blocks[0], start: 510, end: 690 } // longer
+    blocks[1] = { ...blocks[1], day: '2026-11-05', start: 600, end: 750 } // moved to Thursday
+    blocks.splice(2, 1) // deleted
+    blocks.push({ id: 'new', day: '2026-11-06', start: 780, end: 810 }) // added
+    const saved = applyWeekBlocks(state(), week, blocks)
+    expect(saved.workSessions.map(({ id, start, end }) => [id, start, end]).sort()).toEqual([
+      ['2', '2026-11-02T08:30', '2026-11-02T11:30'],
+      ['late', '2026-11-05T10:00', '2026-11-05T12:30'],
+      ['new', '2026-11-06T13:00', '2026-11-06T13:30'],
+      ['other', '2026-11-10T09:00', '2026-11-10T10:00'],
+    ].sort())
+    // round trip: the same blocks come back out
+    expect(weekBlocks(saved, week)).toHaveLength(3)
+  })
+
+  it('writes a block past midnight as the next calendar day', () => {
+    const saved = applyWeekBlocks(state(), week, [{ id: 'n', day: '2026-11-02', start: 1410, end: 1470 }])
+    const n = saved.workSessions.find((s) => s.id === 'n')
+    expect([n.start, n.end]).toEqual(['2026-11-02T23:30', '2026-11-03T00:30'])
+  })
+})
+
+describe('setWeekGoal', () => {
+  // 2h from the start, 6h from Mon Nov 2, a mid-week change to 7h on Thu Nov 12
+  const settings = () =>
+    setWorkGoal(setWorkGoal(setWorkGoal(createInitialState(), 120, '2000-01-01'), 360, '2026-11-02'), 420, '2026-11-12')
+      .settings
+  const summary = (s) => s.workGoals.map((g) => `${g.from}=${g.minutes / 60}h`).join(' ')
+
+  it('changes just that week and puts the old goal back after it', () => {
+    const s = setWeekGoal(settings(), '2026-11-09', 240, 'week')
+    // the Thursday change inside the week is folded in; 7h comes back on the next Monday
+    expect(summary(s)).toBe('2000-01-01=2h 2026-11-02=6h 2026-11-09=4h 2026-11-16=7h')
+    expect(goalOn(s, '2026-11-13')).toBe(240)
+    expect(goalOn(s, '2026-11-20')).toBe(420)
+  })
+
+  it('changes the goal from that week on, until the next change', () => {
+    const s = setWeekGoal(settings(), '2026-10-26', 300, 'onward')
+    expect(summary(s)).toBe('2000-01-01=2h 2026-10-26=5h 2026-11-02=6h 2026-11-12=7h')
+  })
+
+  it('merges entries that end up the same', () => {
+    const s = setWeekGoal(settings(), '2026-11-02', 120, 'onward')
+    expect(summary(s)).toBe('2000-01-01=2h 2026-11-12=7h')
   })
 })

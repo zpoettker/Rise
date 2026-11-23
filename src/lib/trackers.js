@@ -45,6 +45,7 @@ const countOf = (days, status) => days.filter((d) => d.status === status).length
 const morning = {
   id: 'morning',
   label: 'Morning',
+  editLabel: 'Edit log on time',
   start: trackingStart,
   days: (state, from, today) =>
     getDays(state, from, today).map((d) =>
@@ -189,6 +190,8 @@ function lastWorkoutLabel(state, today) {
 const work = {
   id: 'work',
   label: 'Work',
+  // clicking a calendar day opens that week in the edit popup
+  editLabel: 'Edit this week',
   // replaces "Good Morning" at the top of the tab
   heading: workHeading,
   start: workStart,

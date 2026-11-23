@@ -5,7 +5,9 @@ import { HoursBarsCard } from './components/charts/HoursBarsCard'
 import { MonthCalendar } from './components/charts/MonthCalendar'
 import { WeekProgressCard } from './components/charts/WeekProgressCard'
 import { WeeklyBarsCard } from './components/charts/WeeklyBarsCard'
+import { WeekTimelineCard } from './components/charts/WeekTimelineCard'
 import { WeightCard } from './components/charts/WeightCard'
+import { WeekEditDialog } from './components/WeekEditDialog'
 import { WeighInDialog, WeightGoalDialog } from './components/WeightDialogs'
 import { YearHeatmap } from './components/charts/YearHeatmap'
 import { EditLoginDialog } from './components/EditLoginDialog'
@@ -51,6 +53,8 @@ function App() {
   const [range, setRange] = useState('30d')
   const [editingDate, setEditingDate] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // a Work day ('yyyy-MM-dd') whose week is open in the edit popup
+  const [editingWeek, setEditingWeek] = useState(null)
   // null, 'goal', or { weight } (weight null = adding a new weigh-in)
   const [weightDialog, setWeightDialog] = useState(null)
   const today = dayOf(new Date(), state.settings)
@@ -154,7 +158,7 @@ function App() {
               tracker={tracker}
               state={state}
               today={today}
-              onSelectDay={isMorning ? setEditingDate : undefined}
+              onSelectDay={isMorning ? setEditingDate : tab === 'work' ? setEditingWeek : undefined}
             />
             {summary.weekly ? (
               <WeeklyBarsCard weekly={summary.weekly} rangeLabel={RANGE_LABELS[range]} />
@@ -178,6 +182,9 @@ function App() {
           )}
 
           {summary.extra && <MoreStatsCard stats={summary.extra} />}
+          {tab === 'work' && (
+            <WeekTimelineCard state={state} today={today} now={now} onEdit={setEditingWeek} />
+          )}
 
           {tracker.heatmapLast && <YearHeatmap tracker={tracker} state={state} today={today} />}
         </div>
@@ -200,6 +207,18 @@ function App() {
             setState((s) => deleteLogin(s, editingDate))
             setEditingDate(null)
           }}
+        />
+      )}
+
+      {editingWeek && (
+        <WeekEditDialog
+          key={editingWeek}
+          state={state}
+          setState={setState}
+          today={today}
+          now={now}
+          day={editingWeek}
+          onClose={() => setEditingWeek(null)}
         />
       )}
 

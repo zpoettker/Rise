@@ -1,5 +1,8 @@
 import {
+  addDays,
+  addMinutes,
   eachDayOfInterval,
+  format,
   isWeekend,
   max,
   nextMonday,
@@ -47,6 +50,24 @@ export function setWorkGoal(state, minutes, from) {
   goals.push({ from, minutes })
   goals.sort((a, b) => (a.from < b.from ? -1 : 1))
   return { ...state, settings: { ...state.settings, workGoals: goals } }
+}
+
+// Sets the goal for a whole Mon–Sun week (`weekStart`), either for that week
+// only (the goal in effect the Monday after is put back) or from that week
+// on (until the next later change). Changes that started inside the week are
+// folded in, so every day of it gets the new goal. Back-to-back entries with
+// the same goal are merged.
+export function setWeekGoal(settings, weekStart, minutes, scope = 'week') {
+  const nextWeek = toDateKey(addDays(parseISO(weekStart), 7))
+  const after = goalOn(settings, nextWeek)
+  let goals = settings.workGoals.filter((g) => !(g.from >= weekStart && g.from < nextWeek))
+  goals.push({ from: weekStart, minutes })
+  if (scope === 'week' && !goals.some((g) => g.from === nextWeek)) {
+    goals.push({ from: nextWeek, minutes: after })
+  }
+  goals.sort((a, b) => (a.from < b.from ? -1 : 1))
+  goals = goals.filter((g, i) => i === 0 || g.minutes !== goals[i - 1].minutes)
+  return { ...settings, workGoals: goals }
 }
 
 // Where a goal change starts by default: the coming Monday (even on a
@@ -187,6 +208,95 @@ export function getWorkRecords(state, today = new Date(), now = Date.now()) {
   }
 
   return { todayMinutes, longestDay, newRecord, longestBlock, weekMinutes, totalMinutes }
+}
+
+// Default hours the timeline shows; it widens to fit sessions outside them
+const TIMELINE_FROM = 6 * 60
+const TIMELINE_TO = 22 * 60
+
+// How a timeline block is shaded, by its length: 1 (under 30m) → 4 (2h+)
+export function blockLevel(minutes) {
+  if (minutes >= 120) return 4
+  if (minutes >= 60) return 3
+  if (minutes >= 30) return 2
+  return 1
+}
+
+// A Mon–Sun week (the one holding `weekOf`, this week by default) as a
+// timeline: each day's sessions as blocks in minutes
+// from that day's midnight (a session after midnight that still belongs to
+// the day, before the day start, goes past 24:00), the running stretch live,
+// plus each day's total and goal. `from` / `to` is the span of hours to draw,
+// on whole hours.
+export function getWeekTimeline(state, today = new Date(), now = Date.now(), weekOf = today) {
+  const { settings } = state
+  const monday = startOfWeek(weekOf, { weekStartsOn: 1 })
+  const todayKey = toDateKey(today)
+  const minuteOf = (date, dayKey) => (date - parseISO(dayKey)) / 60000
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const date = toDateKey(addDays(monday, i))
+    return { date, blocks: [], minutes: 0, goal: goalOn(settings, date), today: date === todayKey, future: date > todayKey }
+  })
+  const byDate = Object.fromEntries(days.map((d) => [d.date, d]))
+
+  for (const span of state.workSessions) {
+    const day = byDate[spanDay(span, settings)]
+    if (!day) continue
+    const start = minuteOf(parseISO(span.start), day.date)
+    const minutes = spanMinutes(span)
+    day.blocks.push({ start, end: start + minutes, minutes, level: blockLevel(minutes) })
+  }
+  const running = runningStretch(state, now)
+  if (running && byDate[running.day]) {
+    const day = byDate[running.day]
+    const start = minuteOf(new Date(state.timer.startedAt), day.date)
+    const { minutes } = running
+    day.blocks.push({ start, end: start + minutes, minutes, level: blockLevel(minutes), running: true })
+  }
+
+  let from = TIMELINE_FROM
+  let to = TIMELINE_TO
+  for (const day of days) {
+    day.blocks.sort((a, b) => a.start - b.start)
+    day.minutes = day.blocks.reduce((sum, b) => sum + b.minutes, 0)
+    day.met = day.minutes >= day.goal
+    for (const b of day.blocks) {
+      from = Math.min(from, Math.floor(b.start / 60) * 60)
+      to = Math.max(to, Math.ceil(b.end / 60) * 60)
+    }
+  }
+  const nowMinute = minuteOf(new Date(now), toDateKey(dayOf(new Date(now), settings)))
+  return { start: toDateKey(monday), days, from, to, now: nowMinute }
+}
+
+// Editing a week on the timeline works on plain blocks: { id, day, start,
+// end } with start/end in minutes from that day's midnight (like the
+// timeline). These convert a week's sessions to blocks and back.
+
+// The saved sessions in the Mon–Sun week starting `weekStart` ('yyyy-MM-dd')
+export function weekBlocks(state, weekStart) {
+  const days = Array.from({ length: 7 }, (_, i) => toDateKey(addDays(parseISO(weekStart), i)))
+  const blocks = []
+  for (const span of state.workSessions) {
+    const day = spanDay(span, state.settings)
+    if (!days.includes(day)) continue
+    const start = (parseISO(span.start) - parseISO(day)) / 60000
+    blocks.push({ id: span.id, day, start, end: start + spanMinutes(span) })
+  }
+  return blocks.sort((a, b) => a.day.localeCompare(b.day) || a.start - b.start)
+}
+
+// Replaces the week's sessions with `blocks` (edited, added or removed);
+// sessions outside the week are left alone.
+export function applyWeekBlocks(state, weekStart, blocks) {
+  const days = new Set(Array.from({ length: 7 }, (_, i) => toDateKey(addDays(parseISO(weekStart), i))))
+  const stamp = (day, minute) => format(addMinutes(parseISO(day), minute), "yyyy-MM-dd'T'HH:mm")
+  const kept = state.workSessions.filter((s) => !days.has(spanDay(s, state.settings)))
+  const edited = blocks
+    .filter((b) => b.end > b.start)
+    .map((b) => ({ id: b.id, start: stamp(b.day, b.start), end: stamp(b.day, b.end) }))
+  return { ...state, workSessions: [...kept, ...edited] }
 }
 
 export function getWorkStats(state, range = '30d', today = new Date()) {
