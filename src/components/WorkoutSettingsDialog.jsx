@@ -49,7 +49,7 @@ export function WorkoutSettingsDialog({ settings, onSave, onClose }) {
         </div>
 
         <p className="text-xs text-ink-soft">
-          Your name, day start and backups are in the Morning tab's settings.
+          Your name, day start, tabs and backups are in the All tab's settings.
         </p>
 
         <div className="flex justify-end gap-2">

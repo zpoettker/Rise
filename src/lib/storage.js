@@ -1,4 +1,5 @@
-import { createInitialState, DEFAULT_SETTINGS, readWorkGoals } from './logins'
+import { readCustom, readCustomLog } from './customConfig'
+import { createInitialState, DEFAULT_SETTINGS, readEnabledTrackers, readWorkGoals } from './logins'
 
 const STORAGE_KEY = 'rise:data'
 
@@ -14,7 +15,14 @@ export function loadState() {
       ...createInitialState(),
       ...parsed,
       // older saves had one work goal; it becomes the start of the history
-      settings: { ...DEFAULT_SETTINGS, ...saved, workGoals: readWorkGoals(parsed.settings) },
+      settings: {
+        ...DEFAULT_SETTINGS,
+        ...saved,
+        workGoals: readWorkGoals(parsed.settings),
+        custom: readCustom(parsed.settings),
+        enabledTrackers: readEnabledTrackers(parsed.settings),
+      },
+      customLog: readCustomLog(parsed.customLog),
     }
   } catch {
     return createInitialState()

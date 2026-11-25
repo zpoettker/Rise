@@ -1,5 +1,6 @@
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { getCastleProgress } from './castles'
+import { customStart, getCustomDays, getCustomStats, isCustomDone } from './custom'
 import { isMorningDay, toDateKey } from './logins'
 import {
   formatDuration,
@@ -281,8 +282,86 @@ const work = {
   },
 }
 
+// The custom tracker, built from its setup (`settings.custom`). Same layout as
+// Morning: streak + two cards, heatmap, calendar (click a day to check it off
+// or clear it) and a hit-rate ring. Every day, or a number of days a week.
+function customTracker(custom) {
+  const weekly = custom.goal === 'weekly'
+  const period = weekly ? 'week' : 'day'
+  return {
+    id: 'custom',
+    label: custom.name,
+    editLabel: 'Check off or clear',
+    heading: () => custom.name,
+    start: customStart,
+    days: getCustomDays,
+    isTracked: () => true,
+    showsWeekends: () => true,
+    weekStartsOn: weekly ? 1 : 0,
+    legend: weekly
+      ? {
+          miss: null,
+          steps: [
+            { level: 1, label: 'Under goal' },
+            { level: 3, label: 'On goal' },
+            { level: 5, label: 'Over goal' },
+          ],
+        }
+      : { miss: 'Missed', steps: [{ level: 3, label: 'Done' }] },
+    yearSummary: (days) => ({ value: countOf(days, 'hit'), label: 'days done' }),
+    monthCounts: (days) =>
+      weekly
+        ? [{ value: countOf(days, 'hit'), label: 'days done' }]
+        : [
+            { value: countOf(days, 'hit'), label: 'done' },
+            { value: countOf(days, 'missed'), label: 'missed' },
+          ],
+    describe(day) {
+      const date = dateLabel(day.date)
+      if (day.status === 'hit') {
+        return { date, detail: weekly ? `Done · week ${day.weekDays}/${custom.perWeek}` : 'Done' }
+      }
+      const detail = { pending: 'Not done yet', missed: 'Not done', rest: 'Not done' }[day.status]
+      return { date, detail: detail ?? 'No data' }
+    },
+    summary(state, range, today) {
+      const stats = getCustomStats(state, range, today)
+      const doneToday = isCustomDone(state, toDateKey(today))
+      let line
+      if (doneToday) line = weekly ? `Done today · ${stats.thisWeek} of ${custom.perWeek} this week` : 'Done today'
+      else if (weekly) line = `${stats.thisWeek} of ${custom.perWeek} this week`
+      else line = 'Not done yet today'
+      return {
+        line,
+        doneToday,
+        streak: { current: stats.currentStreak, best: stats.bestStreak, unit: weekly ? 'week' : null },
+        cards: [
+          { label: 'Best streak', value: stats.bestStreak, unit: weekly ? 'week' : null },
+          weekly
+            ? { label: 'This week', value: `${stats.thisWeek} / ${custom.perWeek}` }
+            : { label: 'Days done', value: stats.totalDays },
+        ],
+        rate: {
+          label: weekly ? 'Weeks on goal' : 'Hit rate',
+          value: stats.hitRate,
+          caption: `${stats.hits} of ${stats.decided} ${period}s`,
+          counts: [
+            { kind: 'hit', value: stats.hits, label: weekly ? 'on goal' : 'done' },
+            { kind: 'miss', value: stats.misses, label: weekly ? 'short' : 'missed' },
+          ],
+        },
+      }
+    },
+  }
+}
+
 export const TRACKERS = { morning, workout, work }
 export const TRACKER_LIST = [morning, workout, work]
+
+// The built-in trackers plus the custom one when it's set up, by id
+export function getTrackers(settings) {
+  return settings.custom ? { ...TRACKERS, custom: customTracker(settings.custom) } : TRACKERS
+}
 
 // Tracked days keyed by 'yyyy-MM-dd'
 export function daysByDate(tracker, state, from, today) {

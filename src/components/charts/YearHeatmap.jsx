@@ -28,6 +28,16 @@ function monthLabel(weeks, i) {
 }
 
 export function YearHeatmap({ tracker, state, today = new Date() }) {
+  return (
+    <Card>
+      <HeatmapBody tracker={tracker} state={state} today={today} title="Past year" />
+    </Card>
+  )
+}
+
+// The heatmap without its card, so the All tab can stack all three in one.
+// `title` is the label on the left of the header row (text or a node).
+export function HeatmapBody({ tracker, state, today = new Date(), title }) {
   const { ref, tip, show, hide } = useHoverTooltip()
   const scrollRef = useRef(null)
 
@@ -44,9 +54,9 @@ export function YearHeatmap({ tracker, state, today = new Date() }) {
   }, [])
 
   return (
-    <Card className="space-y-4">
+    <div className="space-y-4">
       <div className="flex items-baseline justify-between gap-4">
-        <CardLabel>Past year</CardLabel>
+        {typeof title === 'string' ? <CardLabel>{title}</CardLabel> : title}
         <p className="text-sm text-ink-soft">
           <span className="font-bold text-ink">{summary.value}</span> {summary.label}
         </p>
@@ -116,6 +126,6 @@ export function YearHeatmap({ tracker, state, today = new Date() }) {
       </div>
 
       <DayLegend legend={tracker.legend} />
-    </Card>
+    </div>
   )
 }

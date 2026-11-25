@@ -47,7 +47,7 @@ export function WorkSettingsDialog({ settings, today, onSave, onClose }) {
         </label>
 
         <p className="text-xs text-ink-soft">
-          Your name, day start and backups are in the Morning tab's settings.
+          Your name, day start, tabs and backups are in the All tab's settings.
         </p>
 
         <div className="flex justify-end gap-2">

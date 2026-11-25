@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 const TAB_KEY = 'rise:tab'
-const TABS = ['morning', 'workout', 'work', 'all']
+const TABS = ['morning', 'workout', 'work', 'custom', 'all']
 
 function loadTab() {
   try {
@@ -14,8 +14,11 @@ function loadTab() {
 
 // The selected tracker tab, remembered per browser. It also themes the whole
 // page: <html data-tracker> swaps the accent colour (morning keeps the default gold).
-export function useTrackerTab() {
-  const [tab, setTab] = useState(loadTab)
+// A tab that's been hidden (`enabled` = the shown trackers) falls back to the
+// first shown one; All is always there.
+export function useTrackerTab(enabled) {
+  const [picked, setTab] = useState(loadTab)
+  const tab = picked === 'all' || enabled.includes(picked) ? picked : enabled[0]
 
   useEffect(() => {
     const root = document.documentElement

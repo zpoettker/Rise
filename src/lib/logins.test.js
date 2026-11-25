@@ -6,6 +6,7 @@ import {
   DEFAULT_SETTINGS,
   deleteLogin,
   parseBackup,
+  readEnabledTrackers,
   recordLoginIfNeeded,
   setLoginTime,
   toDateKey,
@@ -185,5 +186,27 @@ describe('backups', () => {
     expect(bad({ yesterday: { time: '08:00' } })).toThrow(/yesterday/)
     expect(bad({ '2026-09-28': { time: '25:00' } })).toThrow(/2026-09-28/)
     expect(bad({ '2026-09-28': null })).toThrow(/2026-09-28/)
+  })
+})
+
+describe('readEnabledTrackers', () => {
+  it('keeps known trackers in tab order', () => {
+    expect(readEnabledTrackers({ enabledTrackers: ['work', 'morning', 'nope', 'work'] })).toEqual([
+      'morning',
+      'work',
+    ])
+  })
+
+  it('falls back to all three when missing, empty or invalid', () => {
+    expect(readEnabledTrackers({})).toEqual(['morning', 'workout', 'work'])
+    expect(readEnabledTrackers({ enabledTrackers: [] })).toEqual(['morning', 'workout', 'work'])
+    expect(readEnabledTrackers({ enabledTrackers: 'work' })).toEqual(['morning', 'workout', 'work'])
+  })
+
+  it('round-trips through a backup', () => {
+    const state = createInitialState()
+    state.settings.enabledTrackers = ['workout', 'work']
+    const restored = parseBackup(JSON.stringify(createBackup(state)))
+    expect(restored.settings.enabledTrackers).toEqual(['workout', 'work'])
   })
 })

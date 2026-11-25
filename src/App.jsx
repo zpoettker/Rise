@@ -12,7 +12,11 @@ import { WorkoutDayDialog } from './components/WorkoutDayDialog'
 import { WeighInDialog, WeightGoalDialog } from './components/WeightDialogs'
 import { YearHeatmap } from './components/charts/YearHeatmap'
 import { EditLoginDialog } from './components/EditLoginDialog'
-import { SettingsDialog } from './components/SettingsDialog'
+import { AllSettingsDialog } from './components/AllSettingsDialog'
+import { CustomSettingsDialog } from './components/CustomSettingsDialog'
+import { CustomTheme } from './components/ui/CustomTheme'
+import { MorningSettingsDialog } from './components/MorningSettingsDialog'
+import { AllView } from './components/AllView'
 import { WorkoutSettingsDialog } from './components/WorkoutSettingsDialog'
 import { WorkSettingsDialog } from './components/WorkSettingsDialog'
 import { WorkTimerCard } from './components/WorkTimerCard'
@@ -20,7 +24,14 @@ import { Card, CardLabel } from './components/ui/Card'
 import { GearIcon } from './components/ui/GearIcon'
 import { SegmentedControl } from './components/ui/SegmentedControl'
 import { Sun } from './components/ui/Sun'
-import { DumbbellIcon, LaptopIcon, SunIcon, TRACKER_ICONS } from './components/ui/TrackerIcons'
+import {
+  DumbbellIcon,
+  LaptopIcon,
+  CUSTOM_ICONS,
+  RingsIcon,
+  SunIcon,
+  TrackerIcon,
+} from './components/ui/TrackerIcons'
 import { useCelebration } from './hooks/useCelebration'
 import { useNow } from './hooks/useNow'
 import { useLoginData } from './hooks/useLoginData'
@@ -28,15 +39,25 @@ import { useTrackerTab } from './hooks/useTrackerTab'
 import { dayOf, deleteLogin, isMorningDay, setLoginTime, toDateKey, updateSettings } from './lib/logins'
 import { describeLogin, greeting, isNewBestToday } from './lib/stats'
 import { deleteWeight, saveWeight } from './lib/weights'
+import { allHeading, getAllToday } from './lib/all'
 import { setDayWorkouts } from './lib/workouts'
-import { TRACKER_LIST, TRACKERS } from './lib/trackers'
+import { getTrackers } from './lib/trackers'
+import { toggleCustomDay } from './lib/custom'
 
 const TAB_OPTIONS = [
   { value: 'morning', label: 'Morning', icon: SunIcon },
   { value: 'workout', label: 'Workout', icon: DumbbellIcon },
   { value: 'work', label: 'Work', icon: LaptopIcon },
-  { value: 'all', label: 'All' },
 ]
+
+// the shown tracker tabs (the custom one with its own name and icon), then All
+function tabOptions(settings) {
+  const options = [...TAB_OPTIONS]
+  if (settings.custom) {
+    options.push({ value: 'custom', label: settings.custom.name, icon: CUSTOM_ICONS[settings.custom.icon] })
+  }
+  return [...options.filter((o) => settings.enabledTrackers.includes(o.value)), { value: 'all', label: 'All' }]
+}
 
 const RANGE_OPTIONS = [
   { value: '7d', label: '7d' },
@@ -53,7 +74,8 @@ const RANGE_LABELS = {
 
 function App() {
   const [state, setState] = useLoginData()
-  const [tab, setTab] = useTrackerTab()
+  const enabled = state.settings.enabledTrackers
+  const [tab, setTab] = useTrackerTab(enabled)
   const [range, setRange] = useState('30d')
   const [editingDate, setEditingDate] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -61,17 +83,20 @@ function App() {
   const [editingWeek, setEditingWeek] = useState(null)
   // a day ('yyyy-MM-dd') whose workouts are open in the popup
   const [editingWorkouts, setEditingWorkouts] = useState(null)
+  // the custom tab's setup popup: null, 'new' or 'edit'
+  const [customDialog, setCustomDialog] = useState(null)
   // null, 'goal', or { weight } (weight null = adding a new weigh-in)
   const [weightDialog, setWeightDialog] = useState(null)
   const today = dayOf(new Date(), state.settings)
   const todayKey = toDateKey(today)
   const todayEntry = state.entries[todayKey]
   const todayResult = todayEntry && describeLogin(todayEntry.time, state.settings)
-  const tracker = TRACKERS[tab] ?? null
+  const tracker = getTrackers(state.settings)[tab] ?? null
   // ticks every second while the work timer runs, so today's numbers count live
   // (and every minute otherwise, so the greeting keeps up with the time of day)
   const now = useNow(Boolean(state.timer?.startedAt))
   const summary = tracker?.summary(state, range, today, now)
+  const allToday = tab === 'all' ? getAllToday(state, today, now) : null
   // the celebrations belong to the morning; they wait until that tab is shown
   const isMorning = tab === 'morning'
   const { celebrate, preview } = useCelebration(todayKey, isMorning && Boolean(todayResult?.hit))
@@ -98,6 +123,7 @@ function App() {
 
   return (
     <main className="mx-auto max-w-4xl px-6 py-12 space-y-8">
+      <CustomTheme custom={state.settings.custom} />
       {celebrate && (
         <div
           aria-hidden="true"
@@ -106,25 +132,25 @@ function App() {
       )}
 
       <header className="flex animate-rise items-center gap-6">
-        <HeaderIcon tab={tab} celebrate={celebrate} />
+        <HeaderIcon tab={tab} settings={state.settings} celebrate={celebrate} />
         <div>
           <h1 className="text-5xl font-semibold tracking-tight">
             {tracker?.heading?.(state, today) ??
+              (allToday && allHeading(allToday)) ??
               `${greeting(new Date(now), state.settings)}${state.settings.name ? `, ${state.settings.name}` : ''}`}
           </h1>
-          {tab === 'all' ? (
-            <ul className="mt-2 space-y-0.5 text-ink-soft">
-              {TRACKER_LIST.map((t) => (
-                <li key={t.id} data-tracker={t.id} className="flex items-center gap-2">
-                  <span className="size-2 shrink-0 rounded-full bg-accent-400" />
-                  <span>
-                    {t.id === 'morning' ? morningLine : t.summary(state, range, today, now).line}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-2 text-lg text-ink-soft">{isMorning ? morningLine : summary.line}</p>
+          <p className="mt-2 text-lg text-ink-soft">
+            {allToday
+              ? `${allToday.done} of ${allToday.total} done today`
+              : isMorning
+                ? morningLine
+                : summary.line}
+          </p>
+          {tab === 'custom' && (
+            <CheckOffButton
+              done={summary.doneToday}
+              onClick={() => setState((s) => toggleCustomDay(s, todayKey))}
+            />
           )}
         </div>
         <button
@@ -139,7 +165,12 @@ function App() {
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedControl label="Tracker" options={TAB_OPTIONS} value={tab} onChange={setTab} />
+        <SegmentedControl
+          label="Tracker"
+          options={tabOptions(state.settings)}
+          value={tab}
+          onChange={setTab}
+        />
         <SegmentedControl label="Range" options={RANGE_OPTIONS} value={range} onChange={setRange} />
       </div>
 
@@ -166,7 +197,12 @@ function App() {
               state={state}
               today={today}
               onSelectDay={
-                { morning: setEditingDate, workout: setEditingWorkouts, work: setEditingWeek }[tab]
+                {
+                  morning: setEditingDate,
+                  workout: setEditingWorkouts,
+                  work: setEditingWeek,
+                  custom: (date) => setState((s) => toggleCustomDay(s, date)),
+                }[tab]
               }
             />
             {summary.weekly ? (
@@ -198,7 +234,16 @@ function App() {
           {tracker.heatmapLast && <YearHeatmap tracker={tracker} state={state} today={today} />}
         </div>
       ) : (
-        <AllPreview state={state} range={range} today={today} onOpen={setTab} />
+        <div key="all" className="animate-rise">
+          <AllView
+            state={state}
+            range={range}
+            rangeLabel={RANGE_LABELS[range]}
+            today={today}
+            now={now}
+            onOpen={setTab}
+          />
+        </div>
       )}
 
       {editingDate && (
@@ -273,9 +318,23 @@ function App() {
         />
       )}
 
-      {settingsOpen && (tab === 'morning' || tab === 'all') && (
-        <SettingsDialog
+      {settingsOpen && tab === 'morning' && (
+        <MorningSettingsDialog
+          settings={state.settings}
+          onClose={() => setSettingsOpen(false)}
+          onSave={(settings) => {
+            setState((s) => updateSettings(s, settings))
+            setSettingsOpen(false)
+          }}
+        />
+      )}
+      {settingsOpen && tab === 'all' && (
+        <AllSettingsDialog
           state={state}
+          onCustom={() => {
+            setSettingsOpen(false)
+            setCustomDialog(state.settings.custom ? 'edit' : 'new')
+          }}
           onClose={() => setSettingsOpen(false)}
           onSave={(settings) => {
             setState((s) => updateSettings(s, settings))
@@ -283,6 +342,29 @@ function App() {
           }}
           onImport={(imported) => {
             setState(imported)
+            setSettingsOpen(false)
+          }}
+        />
+      )}
+      {(customDialog || (settingsOpen && tab === 'custom')) && (
+        <CustomSettingsDialog
+          custom={customDialog === 'new' ? null : state.settings.custom}
+          daysLogged={Object.keys(state.customLog ?? {}).length}
+          onClose={() => {
+            setCustomDialog(null)
+            setSettingsOpen(false)
+          }}
+          onSave={(custom) => {
+            setState((s) => updateSettings(s, { custom, enabledTrackers: withCustom(s.settings, true) }))
+            setCustomDialog(null)
+            setSettingsOpen(false)
+          }}
+          onRemove={() => {
+            setState((s) => ({
+              ...updateSettings(s, { custom: null, enabledTrackers: withCustom(s.settings, false) }),
+              customLog: {},
+            }))
+            setCustomDialog(null)
             setSettingsOpen(false)
           }}
         />
@@ -314,36 +396,29 @@ function App() {
 
 // Big picture next to the greeting: the animated sun for Morning, the tab's
 // icon in its colour for Workout and Work, and all three together for All.
-function HeaderIcon({ tab, celebrate }) {
+function HeaderIcon({ tab, settings, celebrate }) {
   if (tab === 'morning') return <Sun size={112} celebrate={celebrate} />
 
   const glow =
     'absolute inset-0 rounded-full bg-[radial-gradient(circle,var(--color-accent-200)_0%,transparent_68%)]'
   if (tab === 'all') {
     return (
-      <div aria-hidden="true" className="relative size-28 shrink-0">
+      <div aria-hidden="true" className="relative grid size-28 shrink-0 place-items-center">
         <div className={glow} />
-        {[
-          ['morning', 'left-1/2 top-3 -translate-x-1/2'],
-          ['workout', 'bottom-4 left-3'],
-          ['work', 'bottom-4 right-3'],
-        ].map(([id, position]) => {
-          const Icon = TRACKER_ICONS[id]
-          return (
-            <span key={id} data-tracker={id} className={`absolute ${position}`}>
-              <Icon className="size-10 text-accent-500" />
-            </span>
-          )
-        })}
+        <RingsIcon className="relative size-19 text-accent-500" strokeWidth={1.75} />
       </div>
     )
   }
 
-  const Icon = TRACKER_ICONS[tab]
   return (
     <div aria-hidden="true" className="relative grid size-28 shrink-0 place-items-center">
       <div className={glow} />
-      <Icon className="relative size-19 text-accent-500" strokeWidth={1.75} />
+      <TrackerIcon
+        id={tab}
+        custom={settings.custom}
+        className="relative size-19 text-accent-500"
+        strokeWidth={1.75}
+      />
     </div>
   )
 }
@@ -448,41 +523,31 @@ function Unit({ unit, value }) {
   )
 }
 
-// The All tab until the combined view is built: each tracker's streak in its
-// own colour. Clicking one opens its tab.
-function AllPreview({ state, range, today, onOpen }) {
+// The shown trackers after the custom tab is saved (`on`) or removed
+function withCustom(settings, on) {
+  const rest = settings.enabledTrackers.filter((id) => id !== 'custom')
+  if (!on) return rest.length ? rest : ['morning', 'workout', 'work']
+  // editing keeps it shown or hidden as it was; a new one is shown
+  return settings.custom ? settings.enabledTrackers : [...rest, 'custom']
+}
+
+// The custom tab's "Mark today done" button, which turns into "Done today"
+// (click again to undo)
+function CheckOffButton({ done, onClick }) {
   return (
-    <div className="animate-rise space-y-4">
-      <div className="grid gap-4 sm:grid-cols-3">
-        {TRACKER_LIST.map((t) => {
-          const { streak } = t.summary(state, range, today)
-          return (
-            <button
-              key={t.id}
-              type="button"
-              data-tracker={t.id}
-              onClick={() => onOpen(t.id)}
-              className="rounded-3xl text-left transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
-            >
-              <Card className="h-full">
-                <CardLabel>{t.label} streak</CardLabel>
-                <p className="mt-2 font-display text-5xl font-semibold tabular-nums text-accent-600">
-                  {streak.current}
-                  <Unit unit={streak.unit} value={streak.current} />
-                </p>
-                <p className="mt-1 text-sm text-ink-soft">
-                  Best {streak.best}
-                  {streak.unit ? ` ${streak.best === 1 ? streak.unit : `${streak.unit}s`}` : ''}
-                </p>
-              </Card>
-            </button>
-          )
-        })}
-      </div>
-      <p className="text-center text-sm text-ink-soft">
-        A combined heatmap and calendar for all three is coming soon.
-      </p>
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={done}
+      className={`mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 ${
+        done
+          ? 'bg-accent-100 text-accent-700 hover:bg-accent-200'
+          : 'bg-gradient-to-b from-accent-400 to-accent-500 text-white shadow-soft hover:from-accent-500 hover:to-accent-600'
+      }`}
+    >
+      {done ? '✓ Done today' : 'Mark today done'}
+      {done && <span className="font-semibold text-accent-600">· undo</span>}
+    </button>
   )
 }
 

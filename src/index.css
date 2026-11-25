@@ -41,17 +41,17 @@
   --color-leaf-800: #19491a;
   --color-leaf-900: #133715;
 
-  /* all trackers together: warm ember red */
-  --color-ember-50: #fff2f0;
-  --color-ember-100: #ffe0dc;
-  --color-ember-200: #ffbfb7;
-  --color-ember-300: #fa958c;
-  --color-ember-400: #ef6a61;
-  --color-ember-500: #dc4a42;
-  --color-ember-600: #bc3632;
-  --color-ember-700: #972b28;
-  --color-ember-800: #722422;
-  --color-ember-900: #501c1a;
+  /* all trackers together: a warm grey, so the three tracker colours carry the data */
+  --color-stone-50: #f7f4f1;
+  --color-stone-100: #ede8e3;
+  --color-stone-200: #ddd5cd;
+  --color-stone-300: #c3b8ae;
+  --color-stone-400: #a39689;
+  --color-stone-500: #85786c;
+  --color-stone-600: #6b6056;
+  --color-stone-700: #554c44;
+  --color-stone-800: #3f3832;
+  --color-stone-900: #2b2622;
 
   /* The current tracker's colour. Components use accent-* instead of a fixed
      scale; [data-tracker] below swaps it (morning keeps the sun scale). */
@@ -260,18 +260,18 @@
 }
 
 [data-tracker='all'] {
-  --color-accent-50: var(--color-ember-50);
-  --color-accent-100: var(--color-ember-100);
-  --color-accent-200: var(--color-ember-200);
-  --color-accent-300: var(--color-ember-300);
-  --color-accent-400: var(--color-ember-400);
-  --color-accent-500: var(--color-ember-500);
-  --color-accent-600: var(--color-ember-600);
-  --color-accent-700: var(--color-ember-700);
-  --color-accent-800: var(--color-ember-800);
-  --color-accent-900: var(--color-ember-900);
-  --glow-strong: #fde0da;
-  --glow-soft: #fdf0ea;
+  --color-accent-50: var(--color-stone-50);
+  --color-accent-100: var(--color-stone-100);
+  --color-accent-200: var(--color-stone-200);
+  --color-accent-300: var(--color-stone-300);
+  --color-accent-400: var(--color-stone-500);
+  --color-accent-500: var(--color-stone-600);
+  --color-accent-600: var(--color-stone-700);
+  --color-accent-700: var(--color-stone-800);
+  --color-accent-800: var(--color-stone-800);
+  --color-accent-900: var(--color-stone-900);
+  --glow-strong: #ece6df;
+  --glow-soft: #f6f1eb;
 }
 
 [data-tracker='work'] {
@@ -304,6 +304,16 @@
 }
 
 /* Progress fills grow in from 0 (width is set inline). */
+/* the All tab's rings fill from empty (--ring-length = the circle's length) */
+.ring-fill {
+  animation: ring-fill 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes ring-fill {
+  from {
+    stroke-dashoffset: var(--ring-length);
+  }
+}
+
 .bar-in {
   animation: energy-in 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }

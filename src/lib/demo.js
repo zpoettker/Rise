@@ -98,6 +98,16 @@ export function createDemoState(
     state.weights.push({ id: `wt${i}`, at: stamp(when), kg: Math.round((lb / 2.20462262) * 100) / 100 })
   })
 
+  // a custom "Reading" tab checked off on about 3 days in 4 over the last
+  // 4 months (its own random numbers, so the rest of the demo stays the same)
+  let readSeed = 11
+  const readRandom = () => (readSeed = (readSeed * 16807) % 2147483647) / 2147483647
+  state.settings.custom = { name: 'Reading', icon: 'book', color: 'violet', goal: 'daily', perWeek: 3 }
+  state.settings.enabledTrackers = ['morning', 'workout', 'work', 'custom']
+  for (const day of past.slice(-120)) {
+    if (readRandom() < 0.75) state.customLog[toDateKey(day)] = true
+  }
+
   // replace today's work with sessions adding up to N hours, from 8 AM in
   // blocks of up to 2h with 15 min breaks (later blocks may be in the future)
   if (todayWorkHours != null) {

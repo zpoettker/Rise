@@ -1,4 +1,5 @@
 import { format, isWeekend, subMinutes } from 'date-fns'
+import { readCustom, readCustomLog } from './customConfig'
 
 export const MAX_NAME_LENGTH = 30
 export const MAX_WEEKLY_GOAL = 7
@@ -8,8 +9,13 @@ export const MAX_WORK_GOAL_MINUTES = 16 * 60
 export const MIN_KG = 20
 export const MAX_KG = 400
 
+// The trackers, in tab order
+export const TRACKER_IDS = ['morning', 'workout', 'work']
+
 export const DEFAULT_SETTINGS = {
   name: '',
+  // which tracker tabs are shown (and counted on the All tab), in tab order
+  enabledTrackers: TRACKER_IDS,
   targetTime: '08:30',
   graceMinutes: 15,
   dayStart: '04:00',
@@ -25,6 +31,8 @@ export const DEFAULT_SETTINGS = {
   // weight is stored in kg and shown in this unit; the goal is optional
   weightUnit: 'lb',
   weightGoalKg: null,
+  // the extra tracker you set up yourself (see customConfig.js), null until added
+  custom: null,
 }
 
 // `entries` are morning log-ons keyed by local date ('yyyy-MM-dd'), so each day
@@ -39,6 +47,8 @@ export function createInitialState() {
     workouts: [],
     workSessions: [],
     weights: [],
+    // custom tracker days checked off: { 'yyyy-MM-dd': true }
+    customLog: {},
   }
 }
 
@@ -76,6 +86,17 @@ export function readWorkGoals(saved) {
 }
 
 // Whether a date is a tracked morning (weekends only when turned on).
+// The shown trackers from saved settings or a backup: known ids in tab order
+// ('custom' last, only while a custom tracker is set up), at least one (all of
+// them when missing or invalid)
+export function readEnabledTrackers(saved) {
+  const known = readCustom(saved) ? [...TRACKER_IDS, 'custom'] : TRACKER_IDS
+  const list = saved?.enabledTrackers
+  if (!Array.isArray(list)) return known
+  const enabled = known.filter((id) => list.includes(id))
+  return enabled.length ? enabled : known
+}
+
 export const isMorningDay = (date, settings) => settings.morningWeekends || !isWeekend(date)
 
 // Returns a new state with today's login recorded, or the same state if
@@ -196,6 +217,8 @@ export function parseBackup(text) {
     settings.workoutWeeklyGoal = saved.workoutWeeklyGoal
   }
   settings.workGoals = readWorkGoals(saved)
+  settings.custom = readCustom(saved)
+  settings.enabledTrackers = readEnabledTrackers(saved)
   if (saved.weightUnit === 'lb' || saved.weightUnit === 'kg') settings.weightUnit = saved.weightUnit
   if (typeof saved.weightGoalKg === 'number' && saved.weightGoalKg >= MIN_KG && saved.weightGoalKg <= MAX_KG) {
     settings.weightGoalKg = saved.weightGoalKg
@@ -208,5 +231,6 @@ export function parseBackup(text) {
     workouts: parseSpans(data.workouts, 'workouts'),
     workSessions: parseSpans(data.workSessions, 'work sessions'),
     weights: parseWeights(data.weights),
+    customLog: readCustomLog(data.customLog),
   }
 }
