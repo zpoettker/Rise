@@ -49,6 +49,8 @@ export function createInitialState() {
     weights: [],
     // custom tracker days checked off: { 'yyyy-MM-dd': true }
     customLog: {},
+    // custom "break a habit" days you slipped: { 'yyyy-MM-dd': true }
+    customSlips: {},
   }
 }
 
@@ -232,5 +234,6 @@ export function parseBackup(text) {
     workSessions: parseSpans(data.workSessions, 'work sessions'),
     weights: parseWeights(data.weights),
     customLog: readCustomLog(data.customLog),
+    customSlips: readCustomLog(data.customSlips),
   }
 }

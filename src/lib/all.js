@@ -12,7 +12,7 @@ import {
 } from './stats'
 import { getWorkDays, getWorkRecords, getWorkStats, goalOn, isWorkDay, workStart } from './work'
 import { getWorkoutDays, getWorkoutStats, getWorkoutWeek, workoutStart } from './workouts'
-import { customStart, getCustomDays, getCustomStats, isCustomDone } from './custom'
+import { customStart, getCustomDays, getCustomStats, isCustomDoneToday } from './custom'
 
 // The All tab: the shown trackers side by side (`settings.enabledTrackers`).
 // Each keeps its own colour on a neutral page; "done" means the tracker's
@@ -82,8 +82,10 @@ export function getAllToday(state, today = new Date(), now = Date.now()) {
   const items = [morning, workout, work]
   const custom = settings.custom
   if (custom) {
-    const doneToday = isCustomDone(state, key)
+    const doneToday = isCustomDoneToday(state, key)
     const weekly = custom.goal === 'weekly'
+    const habit = custom.goal === 'quit'
+    const streak = habit ? getCustomStats(state, '7d', today).currentStreak : 0
     const thisWeek = weekly ? getCustomStats(state, '7d', today).thisWeek : 0
     items.push({
       id: 'custom',
@@ -92,8 +94,24 @@ export function getAllToday(state, today = new Date(), now = Date.now()) {
       // like workouts, a weekly goal that's already met counts as done
       done: doneToday || (weekly && thisWeek >= custom.perWeek),
       progress: weekly ? Math.min(1, thisWeek / custom.perWeek) : doneToday ? 1 : 0,
-      value: weekly ? `${thisWeek} / ${custom.perWeek}` : doneToday ? 'Done' : 'Not yet',
-      detail: weekly ? (doneToday ? 'this week · done today' : 'days this week') : 'every day',
+      value: habit
+        ? doneToday
+          ? `${streak} ${streak === 1 ? 'day' : 'days'}`
+          : 'Slipped'
+        : weekly
+          ? `${thisWeek} / ${custom.perWeek}`
+          : doneToday
+            ? 'Done'
+            : 'Not yet',
+      detail: habit
+        ? doneToday
+          ? 'on track'
+          : 'tomorrow is a fresh start'
+        : weekly
+          ? doneToday
+            ? 'this week · done today'
+            : 'days this week'
+          : 'every day',
     })
   }
   const enabled = enabledOf(state)

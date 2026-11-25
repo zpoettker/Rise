@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { getCustomDays, getCustomStats, getCustomWeeks, toggleCustomDay } from './custom'
+import {
+  getCustomDays,
+  getCustomStats,
+  getCustomWeeks,
+  isCustomDoneToday,
+  toggleCustomDay,
+  toggleCustomSlip,
+} from './custom'
 import { readCustom, readCustomLog } from './customConfig'
 import { createBackup, createInitialState, parseBackup, readEnabledTrackers } from './logins'
 
@@ -14,6 +21,7 @@ function withCustom(custom, days) {
     color: 'violet',
     goal: 'daily',
     perWeek: 3,
+    since: null,
     ...custom,
   }
   for (const d of days) state.customLog[`2026-11-${String(d).padStart(2, '0')}`] = true
@@ -61,6 +69,40 @@ describe('custom tracker: days a week', () => {
   })
 })
 
+describe('custom tracker: break a habit', () => {
+  // counting from Nov 14; slipped on the 17th
+  const habit = () => {
+    const state = withCustom({ goal: 'quit', since: '2026-11-14' }, [])
+    state.customSlips = { '2026-11-17': true }
+    return state
+  }
+
+  it('counts every day since the start as on track unless it was a slip', () => {
+    const days = getCustomDays(habit(), at(1), at(20))
+    expect(days.map((d) => d.status)).toEqual(['hit', 'hit', 'hit', 'missed', 'hit', 'hit', 'hit'])
+  })
+
+  it('counts the streak since the last slip, today included', () => {
+    const stats = getCustomStats(habit(), 'all', at(20))
+    expect(stats).toMatchObject({ currentStreak: 3, bestStreak: 3, hits: 6, misses: 1, totalDays: 6 })
+  })
+
+  it('marks and clears a slip, and today counts as done unless slipped', () => {
+    const slipped = toggleCustomSlip(habit(), '2026-11-20')
+    expect(isCustomDoneToday(habit(), '2026-11-20')).toBe(true)
+    expect(isCustomDoneToday(slipped, '2026-11-20')).toBe(false)
+    expect(getCustomStats(slipped, 'all', at(20)).currentStreak).toBe(0)
+    expect(toggleCustomSlip(slipped, '2026-11-20').customSlips).toEqual({ '2026-11-17': true })
+  })
+
+  it('round-trips through a backup', () => {
+    const state = habit()
+    const restored = parseBackup(JSON.stringify(createBackup(state)))
+    expect(restored.settings.custom).toMatchObject({ goal: 'quit', since: '2026-11-14' })
+    expect(restored.customSlips).toEqual({ '2026-11-17': true })
+  })
+})
+
 describe('setup and saving', () => {
   it('toggles a day on and off', () => {
     const state = withCustom({}, [])
@@ -81,6 +123,7 @@ describe('setup and saving', () => {
       color: 'violet',
       goal: 'daily',
       perWeek: 3,
+      since: null,
     })
     expect(readCustomLog({ '2026-11-01': true, bad: true, '2026-11-02': 'yes' })).toEqual({
       '2026-11-01': true,

@@ -131,7 +131,16 @@ export const CUSTOM_COLORS = {
   },
 }
 
-export const DEFAULT_CUSTOM = { name: '', icon: 'star', color: 'violet', goal: 'daily', perWeek: 3 }
+// goal: 'daily' (check it off every day), 'weekly' (`perWeek` days a week) or
+// 'quit' (break a habit: every day since `since` is a win unless you mark a slip)
+export const DEFAULT_CUSTOM = {
+  name: '',
+  icon: 'star',
+  color: 'violet',
+  goal: 'daily',
+  perWeek: 3,
+  since: null,
+}
 
 // The custom tracker from saved settings or a backup, or null if there isn't a
 // valid one. Bad fields fall back to the defaults.
@@ -143,8 +152,9 @@ export function readCustom(saved) {
     name: c.name.trim().slice(0, MAX_CUSTOM_NAME),
     icon: CUSTOM_ICON_IDS.includes(c.icon) ? c.icon : DEFAULT_CUSTOM.icon,
     color: CUSTOM_COLORS[c.color] ? c.color : DEFAULT_CUSTOM.color,
-    goal: c.goal === 'weekly' ? 'weekly' : 'daily',
+    goal: ['weekly', 'quit'].includes(c.goal) ? c.goal : 'daily',
     perWeek: perWeek ? c.perWeek : DEFAULT_CUSTOM.perWeek,
+    since: /^\d{4}-\d{2}-\d{2}$/.test(c.since) ? c.since : null,
   }
 }
 

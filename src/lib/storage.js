@@ -23,6 +23,7 @@ export function loadState() {
         enabledTrackers: readEnabledTrackers(parsed.settings),
       },
       customLog: readCustomLog(parsed.customLog),
+      customSlips: readCustomLog(parsed.customSlips),
     }
   } catch {
     return createInitialState()
@@ -52,6 +53,27 @@ export function loadCelebratedDay() {
 export function saveCelebratedDay(dateKey) {
   try {
     localStorage.setItem(CELEBRATED_KEY, dateKey)
+  } catch {
+    // blocked storage just means the celebration may replay
+  }
+}
+
+// The period (day, or week for workouts) each tracker's goal celebration last
+// played for: { workout: '2026-11-23', work: '2026-11-24', … }. Kept out of
+// backups like the morning one.
+const CELEBRATIONS_KEY = 'rise:celebrations'
+
+export function loadCelebrations() {
+  try {
+    return JSON.parse(localStorage.getItem(CELEBRATIONS_KEY)) ?? {}
+  } catch {
+    return {}
+  }
+}
+
+export function saveCelebration(id, periodKey) {
+  try {
+    localStorage.setItem(CELEBRATIONS_KEY, JSON.stringify({ ...loadCelebrations(), [id]: periodKey }))
   } catch {
     // blocked storage just means the celebration may replay
   }

@@ -33,6 +33,7 @@ import {
   TrackerIcon,
 } from './components/ui/TrackerIcons'
 import { useCelebration } from './hooks/useCelebration'
+import { useGoalCelebration } from './hooks/useGoalCelebration'
 import { useNow } from './hooks/useNow'
 import { useLoginData } from './hooks/useLoginData'
 import { useTrackerTab } from './hooks/useTrackerTab'
@@ -42,7 +43,7 @@ import { deleteWeight, saveWeight } from './lib/weights'
 import { allHeading, getAllToday } from './lib/all'
 import { setDayWorkouts } from './lib/workouts'
 import { getTrackers } from './lib/trackers'
-import { toggleCustomDay } from './lib/custom'
+import { toggleCustomDay, toggleCustomSlip } from './lib/custom'
 
 const TAB_OPTIONS = [
   { value: 'morning', label: 'Morning', icon: SunIcon },
@@ -96,11 +97,29 @@ function App() {
   // (and every minute otherwise, so the greeting keeps up with the time of day)
   const now = useNow(Boolean(state.timer?.startedAt))
   const summary = tracker?.summary(state, range, today, now)
-  const allToday = tab === 'all' ? getAllToday(state, today, now) : null
+  // today at a glance for every tracker: the All tab, and which goals are met
+  const glance = getAllToday(state, today, now)
+  const allToday = tab === 'all' ? glance : null
   // the celebrations belong to the morning; they wait until that tab is shown
   const isMorning = tab === 'morning'
   const { celebrate, preview } = useCelebration(todayKey, isMorning && Boolean(todayResult?.hit))
   const newBest = isMorning && (preview || isNewBestToday(state, today))
+  // the header icon's goal celebration: plays the first time a tab is shown
+  // after its goal is met (right away when you complete it there), and again
+  // on a click while it's met. Workout: worked out today or the week's goal is
+  // met; all: a perfect day.
+  const metById = {
+    ...Object.fromEntries(glance.items.map((item) => [item.id, item.done])),
+    // a habit you're breaking is on track by itself, so it doesn't celebrate
+    ...(state.settings.custom?.goal === 'quit' && { custom: false }),
+    all: glance.total > 0 && glance.done === glance.total,
+  }
+  const goalMet = Boolean(metById[tab])
+  const goal = useGoalCelebration(tab, metById, todayKey)
+  const openTab = (next) => {
+    goal.reset()
+    setTab(next)
+  }
 
   const morningLine = todayEntry ? (
     <>
@@ -132,7 +151,15 @@ function App() {
       )}
 
       <header className="flex animate-rise items-center gap-6">
-        <HeaderIcon tab={tab} settings={state.settings} celebrate={celebrate} />
+        <HeaderIcon
+          tab={tab}
+          settings={state.settings}
+          celebrate={celebrate}
+          met={goalMet}
+          playing={goal.playing}
+          playKey={goal.playKey}
+          onReplay={goal.replay}
+        />
         <div>
           <h1 className="text-5xl font-semibold tracking-tight">
             {tracker?.heading?.(state, today) ??
@@ -146,12 +173,6 @@ function App() {
                 ? morningLine
                 : summary.line}
           </p>
-          {tab === 'custom' && (
-            <CheckOffButton
-              done={summary.doneToday}
-              onClick={() => setState((s) => toggleCustomDay(s, todayKey))}
-            />
-          )}
         </div>
         <button
           type="button"
@@ -165,12 +186,23 @@ function App() {
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedControl
-          label="Tracker"
-          options={tabOptions(state.settings)}
-          value={tab}
-          onChange={setTab}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <SegmentedControl
+            label="Tracker"
+            options={tabOptions(state.settings)}
+            value={tab}
+            onChange={openTab}
+          />
+          {/* the custom tab's check-off sits beside the tabs, so the header
+              keeps the same height as every other tab */}
+          {tab === 'custom' && (
+            <CheckOffButton
+              done={summary.doneToday}
+              habit={tracker.habit}
+              onClick={() => setState((s) => toggleToday(s, todayKey))}
+            />
+          )}
+        </div>
         <SegmentedControl label="Range" options={RANGE_OPTIONS} value={range} onChange={setRange} />
       </div>
 
@@ -181,7 +213,7 @@ function App() {
               <StreakCard streak={summary.streak} newBest={newBest} celebrate={celebrate} />
             )}
             {summary.cards.map((card) => (
-              <StatCard key={card.label} card={card} />
+              <StatCard key={card.label} card={card} compact={compactCards(summary.cards)} />
             ))}
           </div>
 
@@ -201,7 +233,7 @@ function App() {
                   morning: setEditingDate,
                   workout: setEditingWorkouts,
                   work: setEditingWeek,
-                  custom: (date) => setState((s) => toggleCustomDay(s, date)),
+                  custom: (date) => setState((s) => toggleToday(s, date)),
                 }[tab]
               }
             />
@@ -241,7 +273,7 @@ function App() {
             rangeLabel={RANGE_LABELS[range]}
             today={today}
             now={now}
-            onOpen={setTab}
+            onOpen={openTab}
           />
         </div>
       )}
@@ -349,7 +381,8 @@ function App() {
       {(customDialog || (settingsOpen && tab === 'custom')) && (
         <CustomSettingsDialog
           custom={customDialog === 'new' ? null : state.settings.custom}
-          daysLogged={Object.keys(state.customLog ?? {}).length}
+          todayKey={todayKey}
+          daysLogged={Object.keys(state.customLog ?? {}).length + Object.keys(state.customSlips ?? {}).length}
           onClose={() => {
             setCustomDialog(null)
             setSettingsOpen(false)
@@ -363,6 +396,7 @@ function App() {
             setState((s) => ({
               ...updateSettings(s, { custom: null, enabledTrackers: withCustom(s.settings, false) }),
               customLog: {},
+              customSlips: {},
             }))
             setCustomDialog(null)
             setSettingsOpen(false)
@@ -395,31 +429,120 @@ function App() {
 }
 
 // Big picture next to the greeting: the animated sun for Morning, the tab's
-// icon in its colour for Workout and Work, and all three together for All.
-function HeaderIcon({ tab, settings, celebrate }) {
-  if (tab === 'morning') return <Sun size={112} celebrate={celebrate} />
-
+// icon in its colour for the others (a target for All). When the goal is met
+// it celebrates (`playing`; `playKey` restarts it) and becomes a button that
+// plays it again:
+//   workout: the dumbbell lifts and slams down · work: the laptop pops and a
+//   check draws on its screen · custom: grows with a wiggle · all: the target
+//   turns and an arrow flies into the bullseye (and stays for the day)
+function HeaderIcon({ tab, settings, celebrate, met, playing, playKey, onReplay }) {
   const glow =
     'absolute inset-0 rounded-full bg-[radial-gradient(circle,var(--color-accent-200)_0%,transparent_68%)]'
-  if (tab === 'all') {
-    return (
-      <div aria-hidden="true" className="relative grid size-28 shrink-0 place-items-center">
+  const icon = 'relative size-19 text-accent-500'
+
+  let art
+  if (tab === 'morning') {
+    art = <Sun key={playKey} size={112} celebrate={celebrate || playing} />
+  } else if (tab === 'all') {
+    art = (
+      <>
         <div className={glow} />
-        <RingsIcon className="relative size-19 text-accent-500" strokeWidth={1.75} />
-      </div>
+        <span key={playKey} className="relative grid place-items-center">
+          <RingsIcon
+            className={`${icon} ${playing ? 'animate-target-turn' : met ? '-rotate-[35deg]' : ''}`}
+            strokeWidth={1.75}
+          />
+          {met && <Arrow className={`absolute inset-0 size-19 ${playing ? 'animate-arrow-in' : ''}`} />}
+        </span>
+      </>
+    )
+  } else {
+    const motion = playing
+      ? { workout: 'animate-dumbbell-slam', work: 'animate-laptop-pop', custom: 'animate-wiggle-grow' }[tab]
+      : ''
+    art = (
+      <>
+        <div className={glow} />
+        <span key={playKey} className="relative grid place-items-center">
+          {playing && tab === 'work' && (
+            <span className="absolute inset-0 m-auto size-16 animate-screen-glow rounded-full bg-[radial-gradient(circle,var(--color-accent-300)_0%,transparent_70%)]" />
+          )}
+          {playing && tab === 'custom' && (
+            <span className="absolute inset-0 m-auto size-20 animate-ripple rounded-full border-2 border-accent-300" />
+          )}
+          <span className={`relative ${motion}`}>
+            <TrackerIcon id={tab} custom={settings.custom} className={icon} strokeWidth={1.75} />
+            {tab === 'work' && met && <ScreenCheck animate={playing} />}
+          </span>
+          {playing && tab === 'workout' && (
+            <span className="absolute -bottom-1 left-1/2 h-1.5 w-16 -translate-x-1/2 animate-impact rounded-full bg-accent-300" />
+          )}
+        </span>
+      </>
     )
   }
 
+  const box = 'relative grid size-28 shrink-0 place-items-center'
+  if (!met) {
+    return (
+      <div aria-hidden="true" className={box}>
+        {art}
+      </div>
+    )
+  }
   return (
-    <div aria-hidden="true" className="relative grid size-28 shrink-0 place-items-center">
-      <div className={glow} />
-      <TrackerIcon
-        id={tab}
-        custom={settings.custom}
-        className="relative size-19 text-accent-500"
-        strokeWidth={1.75}
+    <button
+      type="button"
+      onClick={onReplay}
+      aria-label="Goal met! Play the celebration again"
+      title="Goal met! Click to celebrate again"
+      className={`${box} cursor-pointer rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500`}
+    >
+      {art}
+    </button>
+  )
+}
+
+// The arrow in the All tab's bullseye: its tip sits at the middle of the
+// icon, the shaft and fletching run off to the top right
+function Arrow({ className }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`origin-center overflow-visible text-ink ${className}`}
+      aria-hidden="true"
+    >
+      <path d="M12 12 23 1" />
+      <path d="M21 5.4h-2.3V3.1M23.3 3.4H21V1.1" />
+    </svg>
+  )
+}
+
+// The check that draws itself on the laptop's screen
+function ScreenCheck({ animate }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="absolute inset-0 size-19 text-accent-600"
+      aria-hidden="true"
+    >
+      <path
+        d="M9 10.5l2.2 2.2L15.5 8.5"
+        pathLength={1}
+        strokeDasharray={1}
+        className={animate ? 'animate-draw-check' : ''}
       />
-    </div>
+    </svg>
   )
 }
 
@@ -461,7 +584,13 @@ function StreakCard({ streak, newBest, celebrate }) {
 // A top stat card. Optional: `unit` ('week' → weeks), `sub` (small line
 // under the number), `accent` (number in the tab colour) and `badge` (a
 // "New record!" pill with a 🔥).
-function StatCard({ card }) {
+// A long value with the 🔥 badge (e.g. "10h 53m 🔥") doesn't fit a third of
+// the row at full size, so then the whole row of values steps down a size
+function compactCards(cards) {
+  return cards.some((card) => String(card.value).length + (card.badge ? 2 : 0) >= 9)
+}
+
+function StatCard({ card, compact = false }) {
   return (
     <Card>
       <div className="flex items-center justify-between gap-2">
@@ -473,12 +602,12 @@ function StatCard({ card }) {
         )}
       </div>
       <p
-        className={`mt-2 font-display text-5xl font-semibold tabular-nums ${card.accent ? 'text-accent-600' : ''}`}
+        className={`mt-2 font-display font-semibold whitespace-nowrap tabular-nums ${compact ? 'text-4xl' : 'text-5xl'} ${card.accent ? 'text-accent-600' : ''}`}
       >
         {card.value}
         <Unit unit={card.unit} value={card.value} />
         {card.badge && (
-          <span className="ml-2 text-4xl" role="img" aria-label="New record">
+          <span className={`ml-2 ${compact ? 'text-3xl' : 'text-4xl'}`} role="img" aria-label="New record">
             🔥
           </span>
         )}
@@ -531,24 +660,45 @@ function withCustom(settings, on) {
   return settings.custom ? settings.enabledTrackers : [...rest, 'custom']
 }
 
-// The custom tab's "Mark today done" button, which turns into "Done today"
-// (click again to undo)
-function CheckOffButton({ done, onClick }) {
+// The custom tab's button beside the tab bar: "Mark today done" (turns into
+// "✓ Done today · undo"), or for a habit you're breaking a quiet "I slipped
+// today" (turns into "Slipped today · undo"). As tall as the tab bar.
+function CheckOffButton({ done, habit, onClick }) {
+  const label = habit
+    ? done
+      ? 'I slipped today'
+      : 'Slipped today'
+    : done
+      ? '✓ Done today'
+      : 'Mark today done'
+  // the strong, filled look is for the thing to do next
+  const strong = habit ? false : !done
+  const undo = habit ? !done : done
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-pressed={done}
-      className={`mt-3 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 ${
-        done
-          ? 'bg-accent-100 text-accent-700 hover:bg-accent-200'
-          : 'bg-gradient-to-b from-accent-400 to-accent-500 text-white shadow-soft hover:from-accent-500 hover:to-accent-600'
+      aria-pressed={habit ? !done : done}
+      className={`inline-flex h-[42px] items-center gap-1.5 rounded-full px-4 text-sm font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500 ${
+        strong
+          ? 'bg-gradient-to-b from-accent-400 to-accent-500 text-white shadow-soft hover:from-accent-500 hover:to-accent-600'
+          : habit && done
+            ? 'border border-line bg-white/60 text-ink-soft hover:border-accent-300 hover:text-ink'
+            : 'bg-accent-100 text-accent-700 hover:bg-accent-200'
       }`}
     >
-      {done ? '✓ Done today' : 'Mark today done'}
-      {done && <span className="font-semibold text-accent-600">· undo</span>}
+      {label}
+      {undo && <span className="font-semibold text-accent-600">· undo</span>}
     </button>
   )
+}
+
+// Today's (or a calendar day's) tick on the custom tab: a check-off, or a slip
+// for a habit you're breaking
+function toggleToday(state, date) {
+  return state.settings.custom?.goal === 'quit'
+    ? toggleCustomSlip(state, date)
+    : toggleCustomDay(state, date)
 }
 
 export default App

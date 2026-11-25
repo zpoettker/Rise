@@ -14,6 +14,7 @@ import { CUSTOM_ICONS } from './ui/TrackerIcons'
 const GOALS = [
   { value: 'daily', label: 'Every day' },
   { value: 'weekly', label: 'Days a week' },
+  { value: 'quit', label: 'Break a habit' },
 ]
 const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]
 const DAYS = Array.from({ length: MAX_WEEKLY_GOAL }, (_, i) => ({
@@ -25,7 +26,14 @@ const DAYS = Array.from({ length: MAX_WEEKLY_GOAL }, (_, i) => ({
 // icon, colour and goal. Opened from the All settings or the custom tab's gear.
 // Removing it deletes the tab and the days checked off (a second click
 // confirms), so a new custom tab starts fresh.
-export function CustomSettingsDialog({ custom, daysLogged = 0, onSave, onRemove, onClose }) {
+export function CustomSettingsDialog({
+  custom,
+  todayKey,
+  daysLogged = 0,
+  onSave,
+  onRemove,
+  onClose,
+}) {
   const [draft, setDraft] = useState(custom ?? DEFAULT_CUSTOM)
   const [confirmRemove, setConfirmRemove] = useState(false)
   const set = (field) => (value) => setDraft((d) => ({ ...d, [field]: value }))
@@ -37,7 +45,8 @@ export function CustomSettingsDialog({ custom, daysLogged = 0, onSave, onRemove,
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    if (name) onSave({ ...draft, name })
+    // a habit you're breaking is counted from today unless you pick an earlier day
+    if (name) onSave({ ...draft, name, since: draft.since ?? todayKey })
   }
 
   return (
@@ -139,12 +148,27 @@ export function CustomSettingsDialog({ custom, daysLogged = 0, onSave, onRemove,
               />
             )}
           </div>
+          {draft.goal === 'quit' && (
+            <label className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-ink-soft">Counting from</span>
+              <input
+                type="date"
+                required
+                max={todayKey}
+                value={draft.since ?? todayKey}
+                onChange={(e) => set('since')(e.target.value)}
+                className="rounded-xl border border-line bg-white px-3 py-1.5 text-sm font-bold tabular-nums focus:border-accent-400 focus:outline-none focus:ring-4 focus:ring-accent-200/60"
+              />
+            </label>
+          )}
           <span className="mt-1.5 block text-xs text-ink-soft">
             {draft.goal === 'daily'
               ? 'Check it off every day to keep your streak going.'
-              : `A Mon–Sun week is on goal once you check it off on ${draft.perWeek} ${
-                  draft.perWeek === 1 ? 'day' : 'days'
-                }.`}{' '}
+              : draft.goal === 'weekly'
+                ? `A Mon–Sun week is on goal once you check it off on ${draft.perWeek} ${
+                    draft.perWeek === 1 ? 'day' : 'days'
+                  }.`
+                : "Every day counts as a win by itself. You only mark the days you slip, and your streak is the days since the last one. Pick an earlier day if you've already been going."}{' '}
             Changes apply to past days too.
           </span>
         </div>

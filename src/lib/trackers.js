@@ -1,6 +1,6 @@
 import { differenceInCalendarDays, format, parseISO } from 'date-fns'
 import { getCastleProgress } from './castles'
-import { customStart, getCustomDays, getCustomStats, isCustomDone } from './custom'
+import { customStart, getCustomDays, getCustomStats, isCustomDoneToday } from './custom'
 import { isMorningDay, toDateKey } from './logins'
 import {
   formatDuration,
@@ -150,9 +150,10 @@ const workout = {
     if (!workoutStart(state)) line = 'No workouts yet'
     else if (todayDay?.status === 'hit') line = `Worked out today · ${formatDuration(todayDay.minutes)}`
     else line = `Last workout ${lastWorkoutLabel(state, today)}`
+    const week = getWorkoutWeek(state, today)
     return {
       line,
-      week: getWorkoutWeek(state, today),
+      week,
       streak: { current: stats.currentStreak, best: stats.bestStreak, unit: 'week' },
       cards: [
         { label: 'Best streak', value: stats.bestStreak, unit: 'week' },
@@ -286,6 +287,7 @@ const work = {
 // Morning: streak + two cards, heatmap, calendar (click a day to check it off
 // or clear it) and a hit-rate ring. Every day, or a number of days a week.
 function customTracker(custom) {
+  if (custom.goal === 'quit') return habitTracker(custom)
   const weekly = custom.goal === 'weekly'
   const period = weekly ? 'week' : 'day'
   return {
@@ -326,7 +328,7 @@ function customTracker(custom) {
     },
     summary(state, range, today) {
       const stats = getCustomStats(state, range, today)
-      const doneToday = isCustomDone(state, toDateKey(today))
+      const doneToday = isCustomDoneToday(state, toDateKey(today))
       let line
       if (doneToday) line = weekly ? `Done today · ${stats.thisWeek} of ${custom.perWeek} this week` : 'Done today'
       else if (weekly) line = `${stats.thisWeek} of ${custom.perWeek} this week`
@@ -348,6 +350,62 @@ function customTracker(custom) {
           counts: [
             { kind: 'hit', value: stats.hits, label: weekly ? 'on goal' : 'done' },
             { kind: 'miss', value: stats.misses, label: weekly ? 'short' : 'missed' },
+          ],
+        },
+      }
+    },
+  }
+}
+
+// A custom tracker for breaking a habit: every day since you started counts
+// as a win by itself; you only mark the days you slip (the button, or a
+// calendar day). Streaks are days on track since the last slip.
+function habitTracker(custom) {
+  const days = (n) => (n === 1 ? 'day' : 'days')
+  return {
+    id: 'custom',
+    label: custom.name,
+    habit: true,
+    editLabel: 'Mark or clear a slip',
+    heading: () => custom.name,
+    start: customStart,
+    days: getCustomDays,
+    // only days since you started count
+    isTracked: (date) => !custom.since || toDateKey(date) >= custom.since,
+    showsWeekends: () => true,
+    legend: { miss: 'Slipped', steps: [{ level: 3, label: 'On track' }] },
+    yearSummary: (list) => ({ value: countOf(list, 'hit'), label: 'days on track' }),
+    monthCounts: (list) => [
+      { value: countOf(list, 'hit'), label: 'on track' },
+      { value: countOf(list, 'missed'), label: 'slipped' },
+    ],
+    describe(day) {
+      const date = dateLabel(day.date)
+      if (day.status === 'hit') return { date, detail: 'On track' }
+      if (day.status === 'missed') return { date, detail: 'Slipped' }
+      return { date, detail: 'Before you started' }
+    },
+    summary(state, range, today) {
+      const stats = getCustomStats(state, range, today)
+      const onTrack = isCustomDoneToday(state, toDateKey(today))
+      const line = onTrack
+        ? `${stats.currentStreak} ${days(stats.currentStreak)} on track`
+        : 'Slipped today · tomorrow is a fresh start'
+      return {
+        line,
+        doneToday: onTrack,
+        streak: { current: stats.currentStreak, best: stats.bestStreak, unit: 'day' },
+        cards: [
+          { label: 'Best streak', value: stats.bestStreak, unit: 'day' },
+          { label: 'Days on track', value: stats.totalDays },
+        ],
+        rate: {
+          label: 'On track',
+          value: stats.hitRate,
+          caption: `${stats.hits} of ${stats.decided} days`,
+          counts: [
+            { kind: 'hit', value: stats.hits, label: 'on track' },
+            { kind: 'miss', value: stats.misses, label: 'slipped' },
           ],
         },
       }

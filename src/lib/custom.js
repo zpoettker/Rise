@@ -13,7 +13,28 @@ import { weekLevel } from './workouts'
 
 // The custom tracker's days, weeks and stats (its setup and colours are in
 // customConfig.js). Data: `customLog`, the days checked off as
-// { 'yyyy-MM-dd': true }.
+// { 'yyyy-MM-dd': true }, and for a "break a habit" goal `customSlips`, the
+// days you slipped (every other day since `custom.since` counts as a win).
+
+const isQuit = (state) => state.settings.custom?.goal === 'quit'
+
+export function isCustomSlipped(state, date) {
+  return Boolean(state.customSlips?.[date])
+}
+
+// Marks a day as a slip, or clears it ("break a habit" goal)
+export function toggleCustomSlip(state, date) {
+  const slips = { ...state.customSlips }
+  if (slips[date]) delete slips[date]
+  else slips[date] = true
+  return { ...state, customSlips: slips }
+}
+
+// Whether today's goal is taken care of: checked off, or for a habit you're
+// breaking, not slipped
+export function isCustomDoneToday(state, date) {
+  return isQuit(state) ? !isCustomSlipped(state, date) : isCustomDone(state, date)
+}
 
 export function isCustomDone(state, date) {
   return Boolean(state.customLog?.[date])
@@ -27,8 +48,13 @@ export function toggleCustomDay(state, date) {
   return { ...state, customLog: log }
 }
 
-// The first day checked off, or null
+// The first day checked off (or the day a habit you're breaking is counted
+// from), or null
 export function customStart(state) {
+  if (isQuit(state)) {
+    const since = state.settings.custom.since
+    return since ? parseISO(since) : null
+  }
   const keys = Object.keys(state.customLog ?? {}).sort()
   return keys.length ? parseISO(keys[0]) : null
 }
@@ -48,6 +74,7 @@ function weekCounts(state) {
 
 // Every day from `from` to `today` (from the first check-off).
 //   daily goal: 'hit' (done) | 'missed' | 'pending' (today, not yet)
+//   break a habit: 'hit' (on track, today included) | 'missed' (slipped)
 //   weekly goal: 'hit' (shaded by its week against the goal) | 'rest' | 'pending'
 export function getCustomDays(state, from, today = new Date()) {
   const custom = state.settings.custom
@@ -56,6 +83,15 @@ export function getCustomDays(state, from, today = new Date()) {
   const first = max([startOfDay(from), start])
   const last = startOfDay(today)
   if (first > last) return []
+
+  if (isQuit(state)) {
+    return eachDayOfInterval({ start: first, end: last }).map((day) => {
+      const date = toDateKey(day)
+      return isCustomSlipped(state, date)
+        ? { date, status: 'missed' }
+        : { date, status: 'hit', level: 3 }
+    })
+  }
 
   const todayKey = toDateKey(today)
   const weeks = custom.goal === 'weekly' ? weekCounts(state) : null
@@ -106,7 +142,10 @@ export function getCustomStats(state, range = '30d', today = new Date()) {
     misses: decided.length - hits,
     decided: decided.length,
     hitRate: decided.length ? hits / decided.length : null,
-    totalDays: Object.keys(state.customLog ?? {}).length,
+    // days checked off, or days on track for a habit you're breaking
+    totalDays: isQuit(state)
+      ? getCustomDays(state, start ?? today, today).filter((d) => d.status === 'hit').length
+      : Object.keys(state.customLog ?? {}).length,
     thisWeek,
   }
 }
