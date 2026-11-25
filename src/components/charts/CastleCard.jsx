@@ -11,9 +11,9 @@ const MAX_BRICK = 64
 // a little texture: neighbouring bricks pick slightly different greens
 const SHADES = ['bg-accent-500', 'bg-accent-400', 'bg-accent-600', 'bg-accent-400', 'bg-accent-500']
 const longDate = (key) => format(parseISO(key), 'MMM d, yyyy')
-// While the designs are being worked on, locked castles can be opened to see
-// them built. Set to false to keep them hidden until they're reached.
-const PREVIEW_LOCKED = true
+// Set to true to let locked castles be opened as a preview of the finished
+// design (handy while working on the designs). Off: they stay a surprise.
+const PREVIEW_LOCKED = false
 
 // Castle builder: one brick for every day the goal is met, filling the faint
 // outline from the bottom up in a running bond. The mini castles in the corner
@@ -75,7 +75,7 @@ export function CastleCard({ castle }) {
                     selected
                       ? 'border-accent-400 bg-accent-50 ring-2 ring-accent-200'
                       : t.locked
-                        ? 'border-dashed border-line bg-white/40 hover:border-ink-soft/40'
+                        ? `border-dashed border-line bg-white/40 ${openable ? 'hover:border-ink-soft/40' : ''}`
                         : 'border-line bg-white/70 hover:border-accent-300'
                   } ${openable ? '' : 'cursor-default'}`}
                 >

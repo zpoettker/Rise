@@ -6,6 +6,7 @@ import {
   formatTime12,
   getDays,
   getStats,
+  greeting,
   hitLevel,
   isHit,
   isNewBestToday,
@@ -171,5 +172,22 @@ describe('isNewBestToday', () => {
 
   it('needs at least two days in a row', () => {
     expect(isNewBestToday(stateWith({ 28: '08:00' }), day(28))).toBe(false)
+  })
+})
+
+describe('greeting', () => {
+  const settings = createInitialState().settings // day starts at 4 AM
+  const at = (h, m = 0) => greeting(new Date(2026, 10, 24, h, m), settings)
+
+  it('changes with the time of day', () => {
+    expect(at(4)).toBe('Good Morning')
+    expect(at(11, 59)).toBe('Good Morning')
+    expect(at(12)).toBe('Good Afternoon')
+    expect(at(16, 59)).toBe('Good Afternoon')
+    expect(at(17)).toBe('Good Evening')
+    expect(at(23, 30)).toBe('Good Evening')
+    // after midnight it's still the evening until the day starts
+    expect(at(2)).toBe('Good Evening')
+    expect(at(3, 59)).toBe('Good Evening')
   })
 })

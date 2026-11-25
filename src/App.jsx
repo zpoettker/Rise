@@ -8,10 +8,13 @@ import { WeeklyBarsCard } from './components/charts/WeeklyBarsCard'
 import { WeekTimelineCard } from './components/charts/WeekTimelineCard'
 import { WeightCard } from './components/charts/WeightCard'
 import { WeekEditDialog } from './components/WeekEditDialog'
+import { WorkoutDayDialog } from './components/WorkoutDayDialog'
 import { WeighInDialog, WeightGoalDialog } from './components/WeightDialogs'
 import { YearHeatmap } from './components/charts/YearHeatmap'
 import { EditLoginDialog } from './components/EditLoginDialog'
 import { SettingsDialog } from './components/SettingsDialog'
+import { WorkoutSettingsDialog } from './components/WorkoutSettingsDialog'
+import { WorkSettingsDialog } from './components/WorkSettingsDialog'
 import { WorkTimerCard } from './components/WorkTimerCard'
 import { Card, CardLabel } from './components/ui/Card'
 import { GearIcon } from './components/ui/GearIcon'
@@ -23,8 +26,9 @@ import { useNow } from './hooks/useNow'
 import { useLoginData } from './hooks/useLoginData'
 import { useTrackerTab } from './hooks/useTrackerTab'
 import { dayOf, deleteLogin, isMorningDay, setLoginTime, toDateKey, updateSettings } from './lib/logins'
-import { describeLogin, isNewBestToday } from './lib/stats'
+import { describeLogin, greeting, isNewBestToday } from './lib/stats'
 import { deleteWeight, saveWeight } from './lib/weights'
+import { setDayWorkouts } from './lib/workouts'
 import { TRACKER_LIST, TRACKERS } from './lib/trackers'
 
 const TAB_OPTIONS = [
@@ -55,6 +59,8 @@ function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   // a Work day ('yyyy-MM-dd') whose week is open in the edit popup
   const [editingWeek, setEditingWeek] = useState(null)
+  // a day ('yyyy-MM-dd') whose workouts are open in the popup
+  const [editingWorkouts, setEditingWorkouts] = useState(null)
   // null, 'goal', or { weight } (weight null = adding a new weigh-in)
   const [weightDialog, setWeightDialog] = useState(null)
   const today = dayOf(new Date(), state.settings)
@@ -63,6 +69,7 @@ function App() {
   const todayResult = todayEntry && describeLogin(todayEntry.time, state.settings)
   const tracker = TRACKERS[tab] ?? null
   // ticks every second while the work timer runs, so today's numbers count live
+  // (and every minute otherwise, so the greeting keeps up with the time of day)
   const now = useNow(Boolean(state.timer?.startedAt))
   const summary = tracker?.summary(state, range, today, now)
   // the celebrations belong to the morning; they wait until that tab is shown
@@ -103,7 +110,7 @@ function App() {
         <div>
           <h1 className="text-5xl font-semibold tracking-tight">
             {tracker?.heading?.(state, today) ??
-              `Good Morning${state.settings.name ? `, ${state.settings.name}` : ''}`}
+              `${greeting(new Date(now), state.settings)}${state.settings.name ? `, ${state.settings.name}` : ''}`}
           </h1>
           {tab === 'all' ? (
             <ul className="mt-2 space-y-0.5 text-ink-soft">
@@ -147,7 +154,7 @@ function App() {
             ))}
           </div>
 
-          {summary.week && <WeekProgressCard week={summary.week} />}
+          {summary.week && <WeekProgressCard week={summary.week} onSelectDay={setEditingWorkouts} />}
           {tab === 'work' && <WorkTimerCard state={state} setState={setState} />}
           {summary.castle && <CastleCard castle={summary.castle} />}
 
@@ -158,7 +165,9 @@ function App() {
               tracker={tracker}
               state={state}
               today={today}
-              onSelectDay={isMorning ? setEditingDate : tab === 'work' ? setEditingWeek : undefined}
+              onSelectDay={
+                { morning: setEditingDate, workout: setEditingWorkouts, work: setEditingWeek }[tab]
+              }
             />
             {summary.weekly ? (
               <WeeklyBarsCard weekly={summary.weekly} rangeLabel={RANGE_LABELS[range]} />
@@ -222,6 +231,21 @@ function App() {
         />
       )}
 
+      {editingWorkouts && (
+        <WorkoutDayDialog
+          key={editingWorkouts}
+          date={editingWorkouts}
+          state={state}
+          today={today}
+          now={now}
+          onClose={() => setEditingWorkouts(null)}
+          onSave={(rows) => {
+            setState((s) => setDayWorkouts(s, editingWorkouts, rows))
+            setEditingWorkouts(null)
+          }}
+        />
+      )}
+
       {weightDialog === 'goal' && (
         <WeightGoalDialog
           settings={state.settings}
@@ -249,7 +273,7 @@ function App() {
         />
       )}
 
-      {settingsOpen && (
+      {settingsOpen && (tab === 'morning' || tab === 'all') && (
         <SettingsDialog
           state={state}
           onClose={() => setSettingsOpen(false)}
@@ -259,6 +283,27 @@ function App() {
           }}
           onImport={(imported) => {
             setState(imported)
+            setSettingsOpen(false)
+          }}
+        />
+      )}
+      {settingsOpen && tab === 'workout' && (
+        <WorkoutSettingsDialog
+          settings={state.settings}
+          onClose={() => setSettingsOpen(false)}
+          onSave={(settings) => {
+            setState((s) => updateSettings(s, settings))
+            setSettingsOpen(false)
+          }}
+        />
+      )}
+      {settingsOpen && tab === 'work' && (
+        <WorkSettingsDialog
+          settings={state.settings}
+          today={today}
+          onClose={() => setSettingsOpen(false)}
+          onSave={(update) => {
+            setState(update)
             setSettingsOpen(false)
           }}
         />
@@ -298,7 +343,7 @@ function HeaderIcon({ tab, celebrate }) {
   return (
     <div aria-hidden="true" className="relative grid size-28 shrink-0 place-items-center">
       <div className={glow} />
-      <Icon className="relative size-16 text-accent-500" strokeWidth={1.75} />
+      <Icon className="relative size-19 text-accent-500" strokeWidth={1.75} />
     </div>
   )
 }

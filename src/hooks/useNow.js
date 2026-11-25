@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react'
 
-// The current time in ms, updated every second while `active`. It's only
-// meant to be read while active, so it's fine for it to be stale otherwise.
+// The current time in ms, updated every second while `active` and every
+// minute otherwise (enough for things like the greeting).
 export function useNow(active) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    if (!active) return
     const tick = () => setNow(Date.now())
     const first = setTimeout(tick, 0)
-    const id = setInterval(tick, 1000)
+    const id = setInterval(tick, active ? 1000 : 60 * 1000)
     return () => {
       clearTimeout(first)
       clearInterval(id)

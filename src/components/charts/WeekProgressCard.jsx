@@ -6,7 +6,8 @@ const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 // Full-width progress toward this week's workout goal. `week` comes from
 // getWorkoutWeek: { start, end, goal, workoutDays, minutes, daysLeft, days }.
-export function WeekProgressCard({ week }) {
+// `onSelectDay(date)` makes the day dots clickable (past days and today).
+export function WeekProgressCard({ week, onSelectDay }) {
   const { goal, workoutDays, daysLeft } = week
   const met = workoutDays >= goal
   // one slot per goal day, growing to fit when the week goes over the goal
@@ -33,23 +34,35 @@ export function WeekProgressCard({ week }) {
           <h2 className="mt-1 text-2xl font-semibold">{range}</h2>
         </div>
         <ol className="flex gap-1.5" aria-label="Workout days this week">
-          {week.days.map((day, i) => (
-            <li key={day.date} className="flex flex-col items-center gap-1">
-              <span className="text-xs font-bold text-ink-soft">{WEEKDAYS[i]}</span>
-              <span
-                aria-label={`${format(parseISO(day.date), 'EEEE')}: ${
-                  day.worked ? 'worked out' : day.future ? 'coming up' : 'rest'
-                }`}
-                className={`size-6 rounded-full ${
-                  day.worked
-                    ? 'bg-accent-500'
-                    : day.future
-                      ? 'border-2 border-dashed border-line'
-                      : 'bg-empty'
-                } ${day.today ? 'ring-2 ring-accent-600 ring-offset-2 ring-offset-white' : ''}`}
-              />
-            </li>
-          ))}
+          {week.days.map((day, i) => {
+            const label = `${format(parseISO(day.date), 'EEEE')}: ${
+              day.worked ? 'worked out' : day.future ? 'coming up' : 'rest'
+            }`
+            const dot = `size-6 rounded-full ${
+              day.worked
+                ? 'bg-accent-500'
+                : day.future
+                  ? 'border-2 border-dashed border-line'
+                  : 'bg-empty'
+            } ${day.today ? 'ring-2 ring-accent-600 ring-offset-2 ring-offset-white' : ''}`
+            return (
+              <li key={day.date} className="flex flex-col items-center gap-1">
+                <span className="text-xs font-bold text-ink-soft">{WEEKDAYS[i]}</span>
+                {/* past days and today open the day's workouts */}
+                {onSelectDay && !day.future ? (
+                  <button
+                    type="button"
+                    aria-label={`${label}. Edit workouts`}
+                    title={`${format(parseISO(day.date), 'EEE, MMM d')} · edit workouts`}
+                    onClick={() => onSelectDay(day.date)}
+                    className={`${dot} cursor-pointer transition-transform hover:scale-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500`}
+                  />
+                ) : (
+                  <span aria-label={label} className={dot} />
+                )}
+              </li>
+            )
+          })}
         </ol>
       </div>
 

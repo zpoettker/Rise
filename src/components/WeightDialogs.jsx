@@ -1,6 +1,6 @@
 import { format, parseISO } from 'date-fns'
 import { useState } from 'react'
-import { fromUnit, MAX_KG, MIN_KG, toUnit } from '../lib/weights'
+import { parseWeight, shown, useWeightGoal } from '../hooks/useWeightGoal'
 import { Button } from './ui/Button'
 import { Dialog, DialogTitle } from './ui/Dialog'
 import { SegmentedControl } from './ui/SegmentedControl'
@@ -12,14 +12,6 @@ const UNITS = [
   { value: 'lb', label: 'lb' },
   { value: 'kg', label: 'kg' },
 ]
-
-// The weight typed in `unit`, as kg, or null if it isn't a sensible weight
-function parseWeight(text, unit) {
-  const kg = fromUnit(Number(text), unit)
-  return text !== '' && kg >= MIN_KG && kg <= MAX_KG ? kg : null
-}
-
-const shown = (kg, unit) => String(Math.round(toUnit(kg, unit) * 10) / 10)
 
 // Add a weigh-in (`weight` null) or edit / delete one
 export function WeighInDialog({ weight, unit, lastKg, onSave, onDelete, onClose }) {
@@ -110,62 +102,58 @@ export function WeighInDialog({ weight, unit, lastKg, onSave, onDelete, onClose 
 }
 
 // The unit weights are shown in, and an optional goal weight
-export function WeightGoalDialog({ settings, onSave, onClose }) {
-  const [unit, setUnit] = useState(settings.weightUnit)
-  const [value, setValue] = useState(
-    settings.weightGoalKg != null ? shown(settings.weightGoalKg, settings.weightUnit) : '',
-  )
-  const goalKg = parseWeight(value, unit)
-  const valid = value === '' || goalKg != null
+// The goal weight and unit fields, shared by the "Set goal" popup and the
+// Workout settings. `useWeightGoal` holds the draft; `result` is what to save.
+export function WeightGoalFields({ goal }) {
+  const { unit, value, setValue, changeUnit, valid } = goal
+  return (
+    <>
+      <div>
+        <span className="text-sm font-semibold text-ink-soft">Show weights in</span>
+        <div className="mt-1.5">
+          <SegmentedControl label="Weight unit" options={UNITS} value={unit} onChange={changeUnit} />
+        </div>
+      </div>
 
-  // switching units converts what's typed, so the goal stays the same weight
-  const changeUnit = (next) => {
-    const kg = parseWeight(value, unit)
-    if (kg != null) setValue(shown(kg, next))
-    setUnit(next)
-  }
+      <label className="block">
+        <span className="text-sm font-semibold text-ink-soft">Goal weight ({unit})</span>
+        <input
+          type="number"
+          step="0.1"
+          inputMode="decimal"
+          placeholder="No goal"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className={`${INPUT} placeholder:text-ink-soft/50`}
+        />
+        <span className="mt-1.5 block text-xs text-ink-soft">
+          Leave empty for no goal. It's drawn as a dashed line on the chart.
+        </span>
+      </label>
+
+      {!valid && <p className="text-sm font-bold text-ink">That doesn't look like a weight in {unit}.</p>}
+    </>
+  )
+}
+
+export function WeightGoalDialog({ settings, onSave, onClose }) {
+  const goal = useWeightGoal(settings)
 
   const handleSubmit = (event) => {
     event.preventDefault()
-    if (!valid) return
-    onSave({ weightUnit: unit, weightGoalKg: value === '' ? null : goalKg })
+    if (goal.valid) onSave(goal.result)
   }
 
   return (
     <Dialog onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-5 p-6">
         <DialogTitle label="Weight">Goal &amp; units</DialogTitle>
-
-        <div>
-          <span className="text-sm font-semibold text-ink-soft">Show weights in</span>
-          <div className="mt-1.5">
-            <SegmentedControl label="Weight unit" options={UNITS} value={unit} onChange={changeUnit} />
-          </div>
-        </div>
-
-        <label className="block">
-          <span className="text-sm font-semibold text-ink-soft">Goal weight ({unit})</span>
-          <input
-            type="number"
-            step="0.1"
-            inputMode="decimal"
-            placeholder="No goal"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className={`${INPUT} placeholder:text-ink-soft/50`}
-          />
-          <span className="mt-1.5 block text-xs text-ink-soft">
-            Leave empty for no goal. It's drawn as a dashed line on the chart.
-          </span>
-        </label>
-
-        {!valid && <p className="text-sm font-bold text-ink">That doesn't look like a weight in {unit}.</p>}
-
+        <WeightGoalFields goal={goal} />
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={!valid}>
+          <Button type="submit" disabled={!goal.valid}>
             Save
           </Button>
         </div>

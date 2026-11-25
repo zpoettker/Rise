@@ -29,6 +29,15 @@ export function formatDuration(minutes) {
   return m ? `${h}h ${m}m` : `${h}h`
 }
 
+// "Good Morning" from the day start (4 AM) until noon, "Good Afternoon" until
+// 5 PM, then "Good Evening" through the night until the next day start
+export function greeting(date, settings) {
+  const minute = date.getHours() * 60 + date.getMinutes()
+  if (minute >= toMinutes(settings.dayStart) && minute < 12 * 60) return 'Good Morning'
+  if (minute >= 12 * 60 && minute < 17 * 60) return 'Good Afternoon'
+  return 'Good Evening'
+}
+
 export function formatTime12(time) {
   const [h, m] = time.split(':').map(Number)
   return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`

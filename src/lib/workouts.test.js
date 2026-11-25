@@ -5,7 +5,11 @@ import {
   getWorkoutWeek,
   getWorkoutStats,
   getWorkoutWeeks,
+  overlappingWorkouts,
+  placeWorkout,
+  setDayWorkouts,
   weekLevel,
+  workoutsOn,
 } from './workouts'
 import { TRACKERS } from './trackers'
 
@@ -124,5 +128,54 @@ describe('workout heading', () => {
     expect(heading({ 3: 30 })).toBe("Let's Lift") // only last week
     expect(heading({ 10: 30, 11: 30 })).toBe('Keep It Up')
     expect(heading({ 9: 30, 11: 30, 13: 30 })).toBe('Goal Crushed!')
+  })
+})
+
+describe('editing a day', () => {
+  it('lists the day\'s workouts as clock times, earliest first', () => {
+    const state = stateWith({ 9: [40, 18], 10: 30 })
+    state.workouts.push({ id: 'early', start: '2026-11-09T07:00', end: '2026-11-09T07:30' })
+    // 2 AM on the 10th still belongs to the 9th (day starts at 4 AM)
+    state.workouts.push({ id: 'late', start: '2026-11-10T02:00', end: '2026-11-10T02:45' })
+    expect(workoutsOn(state, '2026-11-09')).toEqual([
+      { id: 'early', start: '07:00', end: '07:30' },
+      { id: '9', start: '18:00', end: '18:40' },
+      { id: 'late', start: '02:00', end: '02:45' },
+    ])
+  })
+
+  it('places times after midnight on the night after, and ends past midnight', () => {
+    const settings = createInitialState().settings
+    expect(placeWorkout({ start: '18:00', end: '19:15' }, settings)).toEqual({
+      start: 1080,
+      end: 1155,
+      minutes: 75,
+    })
+    expect(placeWorkout({ start: '23:30', end: '00:30' }, settings).minutes).toBe(60)
+    expect(placeWorkout({ start: '01:00', end: '02:00' }, settings).start).toBe(25 * 60)
+  })
+
+  it('finds overlapping rows', () => {
+    const settings = createInitialState().settings
+    const rows = [
+      { id: 'a', start: '07:00', end: '08:00' },
+      { id: 'b', start: '07:30', end: '08:30' },
+      { id: 'c', start: '08:30', end: '09:00' },
+    ]
+    expect([...overlappingWorkouts(rows, settings)].sort()).toEqual(['a', 'b'])
+  })
+
+  it("replaces only that day's workouts", () => {
+    const state = stateWith({ 9: 40, 10: 30 })
+    const next = setDayWorkouts(state, '2026-11-09', [
+      { id: 'x', start: '06:30', end: '07:15' },
+      { id: 'y', start: '23:30', end: '00:15' },
+    ])
+    expect(next.workouts).toEqual([
+      { id: '10', start: '2026-11-10T18:00', end: '2026-11-10T18:30' },
+      { id: 'x', start: '2026-11-09T06:30', end: '2026-11-09T07:15' },
+      { id: 'y', start: '2026-11-09T23:30', end: '2026-11-10T00:15' },
+    ])
+    expect(setDayWorkouts(state, '2026-11-09', []).workouts.map((w) => w.id)).toEqual(['10'])
   })
 })

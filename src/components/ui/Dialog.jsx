@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 
 // Modal popup: opens on mount, closes on Esc or a click on the backdrop.
-// `wide` makes room for something like the week timeline.
-export function Dialog({ onClose, wide = false, children }) {
+// `wide` makes room for something like the week timeline; `medium` for a
+// short list of rows (the workout day popup).
+export function Dialog({ onClose, wide = false, medium = false, children }) {
   const ref = useRef(null)
 
   useEffect(() => {
@@ -14,7 +15,7 @@ export function Dialog({ onClose, wide = false, children }) {
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
-      className={`m-auto ${wide ? 'w-[min(60rem,calc(100%-2rem))]' : 'w-[min(24rem,calc(100%-2rem))]'} animate-rise rounded-3xl border border-line bg-cream p-0 text-ink shadow-soft backdrop:bg-ink/25 backdrop:backdrop-blur-sm`}
+      className={`m-auto ${wide ? 'w-[min(60rem,calc(100%-2rem))]' : medium ? 'w-[min(31rem,calc(100%-2rem))]' : 'w-[min(24rem,calc(100%-2rem))]'} animate-rise rounded-3xl border border-line bg-cream p-0 text-ink shadow-soft backdrop:bg-ink/25 backdrop:backdrop-blur-sm`}
     >
       {children}
     </dialog>

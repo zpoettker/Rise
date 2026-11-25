@@ -99,7 +99,9 @@ const morning = {
 const workout = {
   id: 'workout',
   label: 'Workout',
-  // replaces "Good Morning" at the top of the tab, cheering on this week
+  // clicking a calendar day opens its workouts in a popup
+  editLabel: 'Edit workouts',
+  // replaces the "Good Morning" greeting at the top of the tab, cheering on this week
   heading(state, today) {
     const days = getWorkoutWeeks(state, today, today).at(-1)?.days ?? 0
     if (days >= state.settings.workoutWeeklyGoal) return 'Goal Crushed!'
@@ -192,7 +194,7 @@ const work = {
   label: 'Work',
   // clicking a calendar day opens that week in the edit popup
   editLabel: 'Edit this week',
-  // replaces "Good Morning" at the top of the tab
+  // replaces the "Good Morning" greeting at the top of the tab
   heading: workHeading,
   start: workStart,
   days: getWorkDays,

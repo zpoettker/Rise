@@ -1,6 +1,8 @@
 import {
   addDays,
+  addMinutes,
   differenceInCalendarDays,
+  format,
   eachDayOfInterval,
   eachWeekOfInterval,
   max,
@@ -9,7 +11,7 @@ import {
   startOfWeek,
 } from 'date-fns'
 import { toDateKey } from './logins'
-import { firstDay, totalsByDay } from './spans'
+import { firstDay, spanDay, totalsByDay } from './spans'
 import { rangeStart, streaks } from './stats'
 
 // Workouts count by the week: a Mon–Sun week is a hit when you worked out on
@@ -141,4 +143,53 @@ export function getWorkoutStats(state, range = '30d', today = new Date()) {
     // the weeks always run through this week, so the last one is it
     thisWeekDays: allWeeks.at(-1)?.days ?? 0,
   }
+}
+
+// --- Editing one day's workouts (the calendar / week popup) ---
+
+const toMinutes = (time) => {
+  const [h, m] = time.split(':').map(Number)
+  return h * 60 + m
+}
+const stamp = (date, minute) => format(addMinutes(parseISO(date), minute), "yyyy-MM-dd'T'HH:mm")
+
+// The day's workouts as { id, start, end } ('HH:mm' clock times), earliest first
+export function workoutsOn(state, date) {
+  return state.workouts
+    .filter((w) => w.end && spanDay(w, state.settings) === date)
+    .sort((a, b) => a.start.localeCompare(b.start))
+    .map((w) => ({ id: w.id, start: w.start.slice(11), end: w.end.slice(11) }))
+}
+
+// A row of clock times placed on `date`, in minutes from that day's midnight.
+// A start before the day start (e.g. 1 AM) is the night after; an end at or
+// before the start runs past midnight.
+export function placeWorkout(row, settings) {
+  let start = toMinutes(row.start)
+  if (start < toMinutes(settings.dayStart)) start += 24 * 60
+  let end = toMinutes(row.end)
+  while (end <= start) end += 24 * 60
+  return { start, end, minutes: end - start }
+}
+
+// Ids of rows that overlap another row
+export function overlappingWorkouts(rows, settings) {
+  const placed = rows.map((r) => ({ id: r.id, ...placeWorkout(r, settings) }))
+  const bad = new Set()
+  for (const a of placed) {
+    for (const b of placed) {
+      if (a !== b && a.start < b.end && b.start < a.end) bad.add(a.id)
+    }
+  }
+  return bad
+}
+
+// Replaces the day's workouts with `rows` ({ id, start, end } clock times)
+export function setDayWorkouts(state, date, rows) {
+  const kept = state.workouts.filter((w) => spanDay(w, state.settings) !== date)
+  const edited = rows.map((row) => {
+    const { start, end } = placeWorkout(row, state.settings)
+    return { id: row.id, start: stamp(date, start), end: stamp(date, end) }
+  })
+  return { ...state, workouts: [...kept, ...edited] }
 }
