@@ -36,7 +36,7 @@ import {
 import { useCelebration } from './hooks/useCelebration'
 import { useGoalCelebration } from './hooks/useGoalCelebration'
 import { useNow } from './hooks/useNow'
-import { useLoginData } from './hooks/useLoginData'
+import { DEMO, useLoginData } from './hooks/useLoginData'
 import { useTrackerTab } from './hooks/useTrackerTab'
 import { dayOf, deleteLogin, isMorningDay, setLoginTime, toDateKey, updateSettings } from './lib/logins'
 import { describeLogin, greeting, isNewBestToday } from './lib/stats'
@@ -74,8 +74,10 @@ const RANGE_LABELS = {
   all: 'All time',
 }
 
-function App() {
-  const [state, setState] = useLoginData()
+// `session` is the signed-in account (null in the demo or without Supabase)
+function App({ session }) {
+  // the name given at sign-up fills in the greeting until one is set
+  const [state, setState] = useLoginData(session?.user?.user_metadata?.name)
   const enabled = state.settings.enabledTrackers
   const [tab, setTab] = useTrackerTab(enabled)
   const [range, setRange] = useState('30d')
@@ -186,7 +188,12 @@ function App() {
           </p>
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-1 self-start">
-          <ProfileMenu name={state.settings.name} onSettings={() => setAppSettingsOpen(true)} />
+          <ProfileMenu
+            name={state.settings.name}
+            session={session}
+            demo={DEMO}
+            onSettings={() => setAppSettingsOpen(true)}
+          />
           <button
             type="button"
             aria-label="Settings"
