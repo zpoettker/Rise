@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { signOut } from '../lib/auth'
 
-// The profile button in the header, next to the gear: your initial (or a
-// person icon before a name is set) in a soft circle. Its menu is where your
+// The profile button in the header, next to the gear: a person icon in a soft
+// circle. It only gets a badge when something's wrong (changes not reaching
+// the account); the menu shows the sync status either way. Its menu is where your
 // account lives: your email and Sign out (signing in happens on the login
 // page before the app opens). In the demo (`demo`) it offers to create an
-// account instead. Data still lives on this device until syncing is built.
-export function ProfileMenu({ name, session, demo, onSettings }) {
+// account instead. `syncStatus` ('saved' | 'saving' | 'offline') says whether
+// your changes have reached the account.
+export function ProfileMenu({ name, session, demo, syncStatus, onSettings }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
   const email = session?.user?.email ?? ''
-  const initial = (name.trim() || email).charAt(0).toUpperCase()
+  const offline = syncStatus === 'offline'
 
   // close on a click outside or Esc
   useEffect(() => {
@@ -29,19 +31,21 @@ export function ProfileMenu({ name, session, demo, onSettings }) {
     <div ref={ref} className="relative">
       <button
         type="button"
-        aria-label={session ? `Profile (signed in as ${email})` : 'Profile'}
-        title={session ? `Signed in as ${email}` : 'Profile'}
+        aria-label={offline ? 'Profile (offline, changes not synced yet)' : 'Profile'}
+        title={offline ? "Offline: changes will sync when you're back" : 'Profile'}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
         className="relative grid size-11 place-items-center rounded-full transition-colors hover:bg-accent-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
       >
-        <Avatar initial={initial} className="size-8 text-sm" />
-        {session && (
+        <Avatar className="size-8" />
+        {offline && (
           <span
             aria-hidden="true"
-            className="absolute right-1.5 bottom-1.5 size-2.5 rounded-full bg-leaf-500 ring-2 ring-cream"
-          />
+            className="absolute top-1 right-1 grid size-4 place-items-center rounded-full bg-sun-500 text-[10px] font-black text-white ring-2 ring-cream"
+          >
+            !
+          </span>
         )}
       </button>
 
@@ -51,7 +55,7 @@ export function ProfileMenu({ name, session, demo, onSettings }) {
           className="absolute right-0 top-full z-30 mt-2 w-72 animate-rise rounded-2xl border border-line bg-cream p-2 shadow-soft"
         >
           <div className="flex items-center gap-3 px-2 py-2">
-            <Avatar initial={initial} className="size-10 text-base" />
+            <Avatar className="size-10" />
             <div className="min-w-0">
               <p className="truncate font-bold text-ink">
                 {name.trim() || email || 'Your profile'}
@@ -71,7 +75,7 @@ export function ProfileMenu({ name, session, demo, onSettings }) {
           <div className="my-1 border-t border-line" />
 
           {session ? (
-            <SignedIn />
+            <SignedIn syncStatus={syncStatus} />
           ) : demo ? (
             <div className="space-y-2 px-2 py-2">
               <p className="text-xs text-ink-soft">
@@ -104,13 +108,21 @@ export function ProfileMenu({ name, session, demo, onSettings }) {
   )
 }
 
-// Signed in: syncing comes next, then Sign out
-function SignedIn() {
+// Signed in: whether changes have synced, then Sign out
+const SYNC_LABELS = {
+  saved: ['bg-leaf-500', 'Synced to your account'],
+  saving: ['bg-sun-400 animate-pulse', 'Saving…'],
+  offline: ['bg-sun-500', "Offline: changes will sync when you're back"],
+}
+
+function SignedIn({ syncStatus }) {
   const [busy, setBusy] = useState(false)
+  const [dot, label] = SYNC_LABELS[syncStatus] ?? SYNC_LABELS.saved
   return (
     <>
-      <p className="px-2 py-1.5 text-xs text-ink-soft">
-        Your data is still saved on this device. Syncing it to your account is coming next.
+      <p className="flex items-center gap-2 px-2 py-1.5 text-xs text-ink-soft" role="status">
+        <span className={`size-2 shrink-0 rounded-full ${dot}`} />
+        {label}
       </p>
       <button
         type="button"
@@ -132,15 +144,14 @@ function SignedIn() {
   )
 }
 
-// A round badge with your initial, or a person outline (Lucide "user", ISC
-// license) when there's no name or email yet
-function Avatar({ initial, className }) {
+// A person outline (Lucide "user", ISC license) in a soft circle
+function Avatar({ className }) {
   return (
     <span
-      className={`grid shrink-0 place-items-center rounded-full bg-accent-100 font-bold text-accent-700 ring-1 ring-accent-200 ${className}`}
+      className={`grid shrink-0 place-items-center rounded-full bg-accent-100 text-accent-700 ring-1 ring-accent-200 ${className}`}
       aria-hidden="true"
     >
-      {initial || (
+      {
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -153,7 +164,7 @@ function Avatar({ initial, className }) {
           <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
           <circle cx="12" cy="7" r="4" />
         </svg>
-      )}
+      }
     </span>
   )
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createDemoState } from '../lib/demo'
 import { recordLoginIfNeeded, updateSettings } from '../lib/logins'
-import { loadState, saveState } from '../lib/storage'
+import { accountKey, loadState, saveState } from '../lib/storage'
 import { settleTimer } from '../lib/timer'
 
 const params = new URLSearchParams(window.location.search)
@@ -15,7 +15,10 @@ const WORK = params.has('work') ? Number(params.get('work')) : null
 // Loads saved data and records today's login on mount and whenever the tab
 // becomes visible again (covers Chrome being left open overnight).
 // `signupName` (from the account) fills in the greeting's name if none is set.
-export function useLoginData(signupName = '') {
+// Signed in (`userId`), the device copy is that account's own (useSync loads
+// the account's data over it and keeps the two in step).
+export function useLoginData(signupName = '', userId = null) {
+  const key = userId ? accountKey(userId) : undefined
   const [state, setState] = useState(() => {
     if (DEMO) {
       return createDemoState(new Date(), {
@@ -24,14 +27,14 @@ export function useLoginData(signupName = '') {
         todayWorkHours: WORK,
       })
     }
-    const saved = settleTimer(recordLoginIfNeeded(loadState()))
+    const saved = settleTimer(recordLoginIfNeeded(loadState(key)))
     const name = typeof signupName === 'string' ? signupName.trim().slice(0, 30) : ''
     return !saved.settings.name && name ? updateSettings(saved, { name }) : saved
   })
 
   useEffect(() => {
-    if (!DEMO) saveState(state)
-  }, [state])
+    if (!DEMO) saveState(state, key)
+  }, [state, key])
 
   useEffect(() => {
     const onVisible = () => {

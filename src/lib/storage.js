@@ -1,11 +1,23 @@
 import { readCustom, readCustomLog } from './customConfig'
 import { createInitialState, DEFAULT_SETTINGS, readEnabledTrackers, readWorkGoals } from './logins'
 
+// Data saved before accounts (and the local-only copy without Supabase) lives
+// under 'rise:data'. Signed in, each account keeps its own copy on the device
+// under 'rise:data:<user id>' (the account in Supabase is the real one).
 const STORAGE_KEY = 'rise:data'
+export const accountKey = (userId) => `${STORAGE_KEY}:${userId}`
 
-export function loadState() {
+export function hasSavedState(key = STORAGE_KEY) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    return localStorage.getItem(key) != null
+  } catch {
+    return false
+  }
+}
+
+export function loadState(key = STORAGE_KEY) {
+  try {
+    const raw = localStorage.getItem(key)
     if (!raw) return createInitialState()
 
     const parsed = JSON.parse(raw)
@@ -30,9 +42,9 @@ export function loadState() {
   }
 }
 
-export function saveState(state) {
+export function saveState(state, key = STORAGE_KEY) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    localStorage.setItem(key, JSON.stringify(state))
   } catch {
     // storage full or blocked; nothing useful to do here
   }
@@ -76,5 +88,53 @@ export function saveCelebration(id, periodKey) {
     localStorage.setItem(CELEBRATIONS_KEY, JSON.stringify({ ...loadCelebrations(), [id]: periodKey }))
   } catch {
     // blocked storage just means the celebration may replay
+  }
+}
+
+// The pre-accounts data, once it's been uploaded to an account (or set aside)
+export function clearLegacyState() {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // nothing to do
+  }
+}
+
+// The rows last confirmed in the account (sync.js), per account, so changes
+// made offline are still sent after a reload
+const syncedKey = (userId) => `rise:synced:${userId}`
+
+export function loadSyncedRows(userId) {
+  try {
+    return JSON.parse(localStorage.getItem(syncedKey(userId)))
+  } catch {
+    return null
+  }
+}
+
+export function saveSyncedRows(userId, rows) {
+  try {
+    localStorage.setItem(syncedKey(userId), JSON.stringify(rows))
+  } catch {
+    // worst case the next sync resends a little more
+  }
+}
+
+// "Start fresh" was picked instead of uploading this device's data
+const dismissedKey = (userId) => `rise:upload-dismissed:${userId}`
+
+export function isUploadDismissed(userId) {
+  try {
+    return localStorage.getItem(dismissedKey(userId)) === '1'
+  } catch {
+    return false
+  }
+}
+
+export function dismissUpload(userId) {
+  try {
+    localStorage.setItem(dismissedKey(userId), '1')
+  } catch {
+    // it may be offered again; harmless
   }
 }

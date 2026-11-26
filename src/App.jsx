@@ -37,6 +37,8 @@ import { useCelebration } from './hooks/useCelebration'
 import { useGoalCelebration } from './hooks/useGoalCelebration'
 import { useNow } from './hooks/useNow'
 import { DEMO, useLoginData } from './hooks/useLoginData'
+import { useSync } from './hooks/useSync'
+import { SyncScreen } from './components/SyncScreen'
 import { useTrackerTab } from './hooks/useTrackerTab'
 import { dayOf, deleteLogin, isMorningDay, setLoginTime, toDateKey, updateSettings } from './lib/logins'
 import { describeLogin, greeting, isNewBestToday } from './lib/stats'
@@ -77,7 +79,10 @@ const RANGE_LABELS = {
 // `session` is the signed-in account (null in the demo or without Supabase)
 function App({ session }) {
   // the name given at sign-up fills in the greeting until one is set
-  const [state, setState] = useLoginData(session?.user?.user_metadata?.name)
+  const signupName = session?.user?.user_metadata?.name ?? ''
+  const [state, setState] = useLoginData(signupName, session?.user?.id)
+  // the account in Supabase and this device's copy, kept in step
+  const sync = useSync(session?.user?.id ?? null, state, setState, signupName)
   const enabled = state.settings.enabledTrackers
   const [tab, setTab] = useTrackerTab(enabled)
   const [range, setRange] = useState('30d')
@@ -149,6 +154,11 @@ function App({ session }) {
     `Not logged on yet · target ${state.settings.targetTime}`
   )
 
+  // the account's data isn't here yet, or there's a question first
+  if (sync.phase === 'loading' || sync.phase === 'error' || sync.phase === 'offer') {
+    return <SyncScreen sync={sync} />
+  }
+
   return (
     <main className="mx-auto max-w-4xl px-6 py-12 space-y-8">
       <CustomTheme custom={state.settings.custom} />
@@ -192,6 +202,7 @@ function App({ session }) {
             name={state.settings.name}
             session={session}
             demo={DEMO}
+            syncStatus={sync.phase === 'ready' ? sync.status : null}
             onSettings={() => setAppSettingsOpen(true)}
           />
           <button
