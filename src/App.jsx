@@ -14,6 +14,7 @@ import { YearHeatmap } from './components/charts/YearHeatmap'
 import { EditLoginDialog } from './components/EditLoginDialog'
 import { AllSettingsDialog } from './components/AllSettingsDialog'
 import { CustomSettingsDialog } from './components/CustomSettingsDialog'
+import { ProfileMenu } from './components/ProfileMenu'
 import { CustomTheme } from './components/ui/CustomTheme'
 import { MorningSettingsDialog } from './components/MorningSettingsDialog'
 import { AllView } from './components/AllView'
@@ -80,6 +81,8 @@ function App() {
   const [range, setRange] = useState('30d')
   const [editingDate, setEditingDate] = useState(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  // the app-wide settings (All tab's popup), also opened from the profile menu
+  const [appSettingsOpen, setAppSettingsOpen] = useState(false)
   // a Work day ('yyyy-MM-dd') whose week is open in the edit popup
   const [editingWeek, setEditingWeek] = useState(null)
   // a day ('yyyy-MM-dd') whose workouts are open in the popup
@@ -116,6 +119,10 @@ function App() {
   }
   const goalMet = Boolean(metById[tab])
   const goal = useGoalCelebration(tab, metById, todayKey)
+  const closeAppSettings = () => {
+    setSettingsOpen(false)
+    setAppSettingsOpen(false)
+  }
   const openTab = (next) => {
     goal.reset()
     setTab(next)
@@ -150,7 +157,7 @@ function App() {
         />
       )}
 
-      <header className="flex animate-rise items-center gap-6">
+      <header className="relative z-20 flex animate-rise items-center gap-6">
         <HeaderIcon
           tab={tab}
           settings={state.settings}
@@ -171,18 +178,25 @@ function App() {
               ? `${allToday.done} of ${allToday.total} done today`
               : isMorning
                 ? morningLine
-                : summary.line}
+                : <HighlightedLine
+                    line={summary.line}
+                    highlight={summary.highlight}
+                    animate={goal.playing}
+                  />}
           </p>
         </div>
-        <button
-          type="button"
-          aria-label="Settings"
-          title="Settings"
-          onClick={() => setSettingsOpen(true)}
-          className="group ml-auto grid size-11 shrink-0 place-items-center self-start rounded-full text-ink-soft transition-colors hover:bg-accent-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
-        >
-          <GearIcon className="size-6 transition-transform duration-500 group-hover:rotate-90" />
-        </button>
+        <div className="ml-auto flex shrink-0 items-center gap-1 self-start">
+          <ProfileMenu name={state.settings.name} onSettings={() => setAppSettingsOpen(true)} />
+          <button
+            type="button"
+            aria-label="Settings"
+            title="Settings"
+            onClick={() => setSettingsOpen(true)}
+            className="group grid size-11 place-items-center rounded-full text-ink-soft transition-colors hover:bg-accent-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
+          >
+            <GearIcon className="size-6 transition-transform duration-500 group-hover:rotate-90" />
+          </button>
+        </div>
       </header>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -360,21 +374,21 @@ function App() {
           }}
         />
       )}
-      {settingsOpen && tab === 'all' && (
+      {(appSettingsOpen || (settingsOpen && tab === 'all')) && (
         <AllSettingsDialog
           state={state}
           onCustom={() => {
-            setSettingsOpen(false)
+            closeAppSettings()
             setCustomDialog(state.settings.custom ? 'edit' : 'new')
           }}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => closeAppSettings()}
           onSave={(settings) => {
             setState((s) => updateSettings(s, settings))
-            setSettingsOpen(false)
+            closeAppSettings()
           }}
           onImport={(imported) => {
             setState(imported)
-            setSettingsOpen(false)
+            closeAppSettings()
           }}
         />
       )}
@@ -500,6 +514,25 @@ function HeaderIcon({ tab, settings, celebrate, met, playing, playKey, onReplay 
     >
       {art}
     </button>
+  )
+}
+
+// A tab's line under the heading with its good-news part in the tab's colour
+// (e.g. "9h today · goal reached"), like Morning's "right on time". It rises
+// in with the header icon's celebration.
+function HighlightedLine({ line, highlight, animate }) {
+  const at = highlight ? line.indexOf(highlight) : -1
+  if (at < 0) return line
+  return (
+    <>
+      {line.slice(0, at)}
+      <span
+        className={`font-bold text-accent-700 ${animate ? 'inline-block animate-rise [animation-delay:900ms]' : ''}`}
+      >
+        {highlight}
+      </span>
+      {line.slice(at + highlight.length)}
+    </>
   )
 }
 

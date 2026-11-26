@@ -153,6 +153,8 @@ const workout = {
     const week = getWorkoutWeek(state, today)
     return {
       line,
+      // the part of the line shown in the tab's colour (like Morning's "right on time")
+      highlight: todayDay?.status === 'hit' ? 'Worked out today' : null,
       week,
       streak: { current: stats.currentStreak, best: stats.bestStreak, unit: 'week' },
       cards: [
@@ -239,6 +241,7 @@ const work = {
     const dayLabel = (key) => (key === toDateKey(today) ? 'Today' : format(parseISO(key), 'MMM d, yyyy'))
     return {
       line,
+      highlight: worked >= goalMinutes ? 'goal reached' : null,
       // still used by the All tab; this tab shows records up top instead
       streak: { current: stats.currentStreak, best: stats.bestStreak },
       streakCard: false,
@@ -335,6 +338,7 @@ function customTracker(custom) {
       else line = 'Not done yet today'
       return {
         line,
+        highlight: doneToday ? 'Done today' : null,
         doneToday,
         streak: { current: stats.currentStreak, best: stats.bestStreak, unit: weekly ? 'week' : null },
         cards: [
@@ -393,6 +397,7 @@ function habitTracker(custom) {
         : 'Slipped today · tomorrow is a fresh start'
       return {
         line,
+        highlight: onTrack ? line : null,
         doneToday: onTrack,
         streak: { current: stats.currentStreak, best: stats.bestStreak, unit: 'day' },
         cards: [

@@ -42,7 +42,7 @@ export function BackupSection({ state, onPick }) {
       <div>
         <h3 className="text-sm font-semibold text-ink-soft">Backup</h3>
         <p className="mt-1 text-xs text-ink-soft">
-          Your log-ons live only in this browser. Save a copy in case the cache gets cleared.
+          Everything lives only in this browser for now. Save a copy in case the cache gets cleared.
         </p>
       </div>
       <div className="flex gap-2">

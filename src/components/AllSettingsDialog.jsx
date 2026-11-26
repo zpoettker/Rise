@@ -52,96 +52,102 @@ export function AllSettingsDialog({ state, onSave, onImport, onCustom, onClose }
 
   return (
     <Dialog onClose={onClose} medium>
-      <form onSubmit={handleSubmit} className="space-y-5 p-6">
-        <DialogTitle label="Settings">Rise</DialogTitle>
+      {/* Backup sits inside the form so Cancel / Save come last; its own
+          buttons act right away and never submit */}
+      <form onSubmit={handleSubmit}>
+        <div className="space-y-5 p-6">
+          <DialogTitle label="Settings">Rise</DialogTitle>
 
-        <label className="block">
-          <span className="text-sm font-semibold text-ink-soft">Your name</span>
-          <input
-            type="text"
-            autoComplete="given-name"
-            placeholder="For the greeting"
-            maxLength={MAX_NAME_LENGTH}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className={INPUT}
-          />
-        </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink-soft">Your name</span>
+            <input
+              type="text"
+              autoComplete="given-name"
+              placeholder="For the greeting"
+              maxLength={MAX_NAME_LENGTH}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className={INPUT}
+            />
+          </label>
 
-        <label className="block">
-          <span className="text-sm font-semibold text-ink-soft">New day starts at</span>
-          <input
-            type="time"
-            required
-            value={dayStart}
-            onChange={(e) => setDayStart(e.target.value)}
-            className={INPUT}
-          />
-          <span
-            className={`mt-1.5 block text-xs ${validDayStart || !dayStart ? 'text-ink-soft' : 'font-bold text-ink'}`}
-          >
-            {!dayStart
-              ? ''
-              : validDayStart
-                ? `Anything before ${formatTime12(dayStart)} (a late work session, a log-on) belongs to the day before.`
-                : `The day has to start before your morning target (${formatTime12(settings.targetTime)}).`}
-          </span>
-        </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-ink-soft">New day starts at</span>
+            <input
+              type="time"
+              required
+              value={dayStart}
+              onChange={(e) => setDayStart(e.target.value)}
+              className={INPUT}
+            />
+            <span
+              className={`mt-1.5 block text-xs ${validDayStart || !dayStart ? 'text-ink-soft' : 'font-bold text-ink'}`}
+            >
+              {!dayStart
+                ? ''
+                : validDayStart
+                  ? `Anything before ${formatTime12(dayStart)} (a late work session, a log-on) belongs to the day before.`
+                  : `The day has to start before your morning target (${formatTime12(settings.targetTime)}).`}
+            </span>
+          </label>
 
-        <fieldset>
-          <legend className="text-sm font-semibold text-ink-soft">Tabs shown</legend>
-          <div
-            className={`mt-1.5 grid gap-2 ${ids.length === 4 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}
-          >
-            {ids.map((id) => {
-              const on = enabled.includes(id)
-              return (
-                <label
-                  key={id}
-                  data-tracker={id}
-                  className={`flex cursor-pointer items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-colors ${
-                    on ? 'border-accent-300 bg-accent-50' : 'border-line bg-white/60'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() => toggle(id)}
-                    className="size-4 shrink-0 cursor-pointer accent-accent-500"
-                  />
-                  <TrackerIcon
-                    id={id}
-                    custom={settings.custom}
-                    className={`size-5 shrink-0 ${on ? 'text-accent-500' : 'text-ink-soft'}`}
-                  />
-                  <span
-                    className={`truncate text-sm font-bold ${on ? 'text-ink' : 'text-ink-soft'}`}
+          <fieldset>
+            <legend className="text-sm font-semibold text-ink-soft">Tabs shown</legend>
+            <div
+              className={`mt-1.5 grid gap-2 ${ids.length === 4 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}
+            >
+              {ids.map((id) => {
+                const on = enabled.includes(id)
+                return (
+                  <label
+                    key={id}
+                    data-tracker={id}
+                    className={`flex cursor-pointer items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition-colors ${
+                      on ? 'border-accent-300 bg-accent-50' : 'border-line bg-white/60'
+                    }`}
                   >
-                    {trackers[id].label}
-                  </span>
-                </label>
-              )
-            })}
-          </div>
-          <span
-            className={`mt-1.5 block text-xs ${enabled.length ? 'text-ink-soft' : 'font-bold text-ink'}`}
-          >
-            {enabled.length
-              ? 'Hidden trackers leave the tab bar and the All tab. Their data is kept.'
-              : 'Keep at least one tracker.'}
-          </span>
-          <button
-            type="button"
-            onClick={onCustom}
-            className="mt-3 rounded-full px-1 text-sm font-bold text-accent-700 underline decoration-accent-300 underline-offset-4 hover:decoration-accent-500"
-          >
-            {settings.custom
-              ? `Edit your custom tab (${settings.custom.name})`
-              : '+ Add a custom tab'}
-          </button>
-        </fieldset>
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggle(id)}
+                      className="size-4 shrink-0 cursor-pointer accent-accent-500"
+                    />
+                    <TrackerIcon
+                      id={id}
+                      custom={settings.custom}
+                      className={`size-5 shrink-0 ${on ? 'text-accent-500' : 'text-ink-soft'}`}
+                    />
+                    <span
+                      className={`truncate text-sm font-bold ${on ? 'text-ink' : 'text-ink-soft'}`}
+                    >
+                      {trackers[id].label}
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+            <span
+              className={`mt-1.5 block text-xs ${enabled.length ? 'text-ink-soft' : 'font-bold text-ink'}`}
+            >
+              {enabled.length
+                ? 'Hidden trackers leave the tab bar and the All tab. Their data is kept.'
+                : 'Keep at least one tracker.'}
+            </span>
+            <button
+              type="button"
+              onClick={onCustom}
+              className="mt-3 rounded-full px-1 text-sm font-bold text-accent-700 underline decoration-accent-300 underline-offset-4 hover:decoration-accent-500"
+            >
+              {settings.custom
+                ? `Edit your custom tab (${settings.custom.name})`
+                : '+ Add a custom tab'}
+            </button>
+          </fieldset>
+        </div>
 
-        <div className="flex justify-end gap-2">
+        <BackupSection state={state} onPick={setPendingImport} />
+
+        <div className="flex justify-end gap-2 border-t border-line px-6 py-4">
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
@@ -150,7 +156,6 @@ export function AllSettingsDialog({ state, onSave, onImport, onCustom, onClose }
           </Button>
         </div>
       </form>
-      <BackupSection state={state} onPick={setPendingImport} />
     </Dialog>
   )
 }
